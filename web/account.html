@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>My Health | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <script src="/features/assistant/assistant.js" defer></script>
+  <script src="/features/medicine_reminders/today.js" defer></script>
+  <script src="/features/follow_ups/follow-ups.js" defer></script>
+  <script src="/features/family/family.js" defer></script>
+  <script src="/features/health_profile/health-profile.js" defer></script>
+  <style>
+    .data-table th { text-align: center; font-weight: 700; }
+    .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .data-table td.txt { text-align: left; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+  <header id="site-nav"></header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold text-slate-900">My health</h1>
+      <a href="/" class="px-4 py-2 bg-sky-600 text-white text-sm font-semibold rounded-lg hover:bg-sky-700">Find a doctor nearby</a>
+    </div>
+
+    <div id="home-banner" class="hidden rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm px-4 py-3">
+      📍 Set your home location so we can show doctors and pharmacies within <span data-config="radius_km">3</span> km and get your medicines priced nearby.
+      <button data-goto="profile" class="font-semibold underline ml-1">Set home location</button>
+    </div>
+
+    <div class="flex flex-wrap gap-1 p-1 bg-slate-200/60 rounded-lg w-fit text-sm font-medium">
+      <button data-tab="today" class="tab px-4 py-1.5 rounded-md">Today</button>
+      <button data-tab="appointments" class="tab px-4 py-1.5 rounded-md">Appointments</button>
+      <button data-tab="uploads" class="tab px-4 py-1.5 rounded-md">Upload prescription</button>
+      <button data-tab="prescriptions" class="tab px-4 py-1.5 rounded-md">Prescriptions</button>
+      <button data-tab="orders" class="tab px-4 py-1.5 rounded-md">Medicine orders</button>
+      <button data-tab="labs" class="tab px-4 py-1.5 rounded-md">Lab tests</button>
+      <button data-tab="records" class="tab px-4 py-1.5 rounded-md">Health records</button>
+      <button data-tab="history" class="tab px-4 py-1.5 rounded-md">History</button>
+      <button data-tab="profile" class="tab px-4 py-1.5 rounded-md">Profile</button>
+    </div>
+
+    <!-- Today: medicines due, follow-ups (features/medicine_reminders, features/follow_ups) -->
+    <section data-panel="today" class="panel hidden space-y-6">
+      <div id="today-followups"></div>
+      <div id="today-root"></div>
+    </section>
+
+    <!-- Appointments -->
+    <section data-panel="appointments" class="panel hidden space-y-3">
+      <div id="appt-followups"></div>
+      <div class="flex gap-2 text-sm">
+        <button data-when="upcoming" class="when px-3 py-1.5 rounded-lg border border-slate-300">Upcoming</button>
+        <button data-when="past" class="when px-3 py-1.5 rounded-lg border border-slate-300">Past &amp; cancelled</button>
+      </div>
+      <div id="appt-list" class="space-y-3"></div>
+    </section>
+
+    <!-- Prescriptions -->
+    <section data-panel="prescriptions" class="panel hidden space-y-3"><div id="rx-list" class="space-y-3"></div></section>
+
+    <!-- Orders -->
+    <section data-panel="orders" class="panel hidden space-y-3"><div id="order-list" class="space-y-3"></div></section>
+
+    <!-- Upload a prescription from any doctor and get quotations -->
+    <section data-panel="uploads" class="panel hidden space-y-4">
+      <form id="up-form" class="bg-white rounded-xl border-2 border-dashed border-cyan-300 p-5 grid gap-3 text-sm">
+        <div><h2 class="font-semibold text-slate-900 text-base">Upload a prescription, get quotations from nearby pharmacies &amp; labs</h2>
+          <p class="text-slate-600">Take a photo or upload the PDF from any doctor. We send it to verified pharmacies and labs within <span data-config="radius_km">3</span> km of your home. They reply with prices; you pick the best and book.</p></div>
+        <label class="block text-slate-600">Prescription (photo or PDF, up to <span data-config="max_upload_mb">10</span> MB)
+          <input id="up-file" name="file" type="file" required accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" class="mt-1 w-full" /></label>
+        <fieldset class="flex flex-wrap gap-4"><legend class="text-slate-600 mb-1">What do you need?</legend>
+          <label class="flex items-center gap-2"><input type="checkbox" name="want_medicines" checked /> Medicines</label>
+          <label class="flex items-center gap-2"><input type="checkbox" name="want_tests" /> Lab tests</label></fieldset>
+        <label class="block text-slate-600">Note for them (optional)<input name="note" maxlength="500" placeholder="e.g. Need 2 strips of each, generic is fine" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+        <label class="flex items-start gap-2 text-slate-700"><input type="checkbox" name="ai_read_consent" class="mt-1" />
+          <span>Read my prescription automatically so quotations come faster. <span class="block text-xs text-slate-500">The photo is processed by our AI provider to list the medicines and tests. Pharmacies and labs still check every line against the original.</span></span></label>
+        <label class="block text-slate-600">Or type the medicine and test names (optional)<textarea name="typed_lines" rows="2" maxlength="1500" placeholder="One per line, e.g. Dolo 650 1-0-1 x 5 days" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea></label>
+        <p class="text-xs text-slate-500">Pharmacies and labs that receive it can read everything written on the prescription, including your name. The pharmacist will check the original before handing over prescription-only medicines.</p>
+        <div class="flex justify-end"><button class="px-5 py-2.5 bg-cyan-600 text-white font-semibold rounded-lg hover:bg-cyan-700">Send for quotations</button></div>
+      </form>
+      <div id="up-list" class="space-y-3"></div>
+    </section>
+
+    <!-- Lab tests -->
+    <section data-panel="labs" class="panel hidden space-y-3"><div id="lab-list" class="space-y-3"></div></section>
+
+    <!-- Health records: reports, results over time, own files, other medicines -->
+    <section data-panel="records" class="panel hidden space-y-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h2 class="font-semibold text-slate-900">Reports &amp; documents</h2>
+          <button type="button" id="rec-add" class="px-3 py-1.5 bg-sky-600 text-white text-sm font-semibold rounded-lg">+ Add a report or document</button>
+        </div>
+        <form id="rec-form" class="hidden grid sm:grid-cols-2 gap-3 text-sm border border-sky-200 bg-sky-50/50 rounded-lg p-3 mb-3">
+          <label class="text-slate-600">Title<input name="title" required maxlength="200" placeholder="e.g. Blood test from City Hospital" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">Type<select name="kind" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg">
+            <option value="other_report">Test report</option><option value="prescription_copy">Prescription (from outside)</option>
+            <option value="medicine_bill">Medicine bill</option><option value="other">Other document</option></select></label>
+          <label class="text-slate-600">Date<input name="record_date" type="date" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">File (PDF, JPG or PNG, up to <span data-config="max_upload_mb">10</span> MB)<input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" class="mt-1 w-full text-sm" /></label>
+          <label class="text-slate-600 sm:col-span-2">Notes<input name="notes" maxlength="1000" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">For<select name="family_member_id" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"><option value="">Myself</option></select></label>
+          <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" name="share_with_doctors" checked /> Share with doctors I book on Pyshio</label>
+          <div class="flex justify-end gap-2"><button type="button" id="rec-cancel" class="px-3 py-1.5 border border-slate-300 rounded-lg">Cancel</button>
+            <button class="px-4 py-1.5 bg-sky-600 text-white font-semibold rounded-lg">Save</button></div>
+        </form>
+        <div id="rec-list"></div>
+        <div id="rec-explain" class="hidden mt-3 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm" aria-live="polite"></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h2 class="font-semibold text-slate-900 mb-1">Results over time</h2>
+        <p class="text-xs text-slate-500 mb-2">From lab reports on Pyshio. The shaded band is the normal range.</p>
+        <div id="rec-trends" class="grid md:grid-cols-2 gap-4"></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h2 class="font-semibold text-slate-900 mb-1">My other medicines</h2>
+        <p class="text-xs text-slate-500 mb-2">Medicines you take that weren't prescribed on Pyshio. Doctors you book can see the ones you're still taking.</p>
+        <form id="med-form" class="grid grid-cols-2 md:grid-cols-6 gap-2 text-sm items-end mb-3">
+          <label class="text-slate-600 col-span-2">Medicine<input name="name" required maxlength="120" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">Dosage<input name="dosage" placeholder="1-0-1" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">Since<input name="since" type="date" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">Prescribed by<input name="prescribed_by" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <button class="px-3 py-2 bg-sky-600 text-white font-semibold rounded-lg">Add</button>
+        </form>
+        <div id="med-list"></div>
+      </div>
+    </section>
+
+    <!-- History: every visit, prescription, order and payment -->
+    <section data-panel="history" class="panel hidden space-y-6">
+      <div id="h-totals" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+      <div>
+        <h2 class="font-semibold text-slate-900 mb-2">Doctors you've seen</h2>
+        <div id="h-doctors" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+      </div>
+      <div>
+        <h2 class="font-semibold text-slate-900 mb-1">My medicines</h2>
+        <p class="text-xs text-slate-500 mb-2">When each medicine you bought on Pyshio runs out. Long-term medicines with refills can be re-ordered from Prescriptions.</p>
+        <div id="h-courses" class="bg-white rounded-xl border border-slate-200 p-2"></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+        <div class="flex flex-wrap items-end justify-between gap-2">
+          <h2 class="font-semibold text-slate-900">All activity &amp; transactions</h2>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <select id="h-type" aria-label="Type" class="px-3 py-1.5 border border-slate-300 rounded-lg">
+              <option value="">All types</option><option value="visit">Visits</option><option value="prescription">Prescriptions</option>
+              <option value="order">Medicine orders</option><option value="refund">Refunds</option></select>
+            <select id="h-year" aria-label="Year" class="px-3 py-1.5 border border-slate-300 rounded-lg"><option value="">All years</option></select>
+            <a href="/api/my/history.csv" class="px-3 py-1.5 border border-slate-300 rounded-lg hover:bg-slate-50">Download CSV</a>
+          </div>
+        </div>
+        <div id="h-events"></div>
+      </div>
+    </section>
+
+    <!-- Profile -->
+    <section data-panel="profile" class="panel hidden space-y-6">
+      <div id="hp-root"></div>
+      <div id="family-root"></div>
+      <form id="home-form" class="bg-white rounded-xl border border-slate-200 p-6 space-y-3">
+        <h2 class="font-semibold">Home location</h2>
+        <p class="text-sm text-slate-600">Used to find doctors and pharmacies within <span data-config="radius_km">3</span> km and as your default delivery address. Only the distance is shared with pharmacies.</p>
+        <label class="block text-sm text-slate-600">Delivery address<input name="address" placeholder="Flat, building, street, area" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm text-slate-600">City<input name="city" maxlength="60" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="block text-sm text-slate-600">State<select name="state" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></select></label>
+        </div>
+        <div id="home-picker"></div>
+        <button class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Save home location</button>
+      </form>
+      <div class="grid md:grid-cols-2 gap-6">
+        <form id="profile-form" class="bg-white rounded-xl border border-slate-200 p-6 space-y-3">
+          <h2 class="font-semibold">Your details</h2>
+          <label class="block text-sm text-slate-600">Name<input name="name" required class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="block text-sm text-slate-600">Mobile<input name="phone" required class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block text-sm text-slate-600">Date of birth<input name="dob" type="date" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+            <label class="block text-sm text-slate-600">Sex<select name="sex" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg">
+              <option value="">Prefer not to say</option><option value="F">Female</option><option value="M">Male</option><option value="O">Other</option></select></label>
+          </div>
+          <p class="text-xs text-slate-500">Helps your doctor fill in prescriptions correctly.</p>
+          <p class="text-sm text-slate-600">Email: <span id="p-email" class="font-medium text-slate-800"></span></p>
+          <button class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Save</button>
+        </form>
+        <form id="password-form" class="bg-white rounded-xl border border-slate-200 p-6 space-y-3">
+          <h2 class="font-semibold">Change password</h2>
+          <label class="block text-sm text-slate-600">Current password<input name="current_password" type="password" required class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="block text-sm text-slate-600">New password<input name="new_password" type="password" minlength="8" required class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <button class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Change password</button>
+          <button type="button" id="logout-all" class="block text-sm text-sky-700 hover:underline">Sign out on all other devices</button>
+        </form>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+        <h2 class="font-semibold">Privacy &amp; your data</h2>
+        <label class="flex items-start gap-3 text-sm text-slate-700">
+          <input id="consent-toggle" type="checkbox" class="mt-1" />
+          <span>Automatically send my prescriptions to verified pharmacies near my home for price quotes.
+            <span class="block text-xs text-slate-500">Pharmacies see only the medicines and distance until you order. If off, you can still send a prescription yourself.</span></span>
+        </label>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" id="export-data" class="px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Download my data</button>
+          <button type="button" id="delete-account" class="px-3 py-2 border border-red-300 text-red-700 rounded-lg text-sm hover:bg-red-50">Close my account</button>
+          <a href="/privacy" class="px-3 py-2 text-sm text-sky-700 hover:underline">Privacy policy</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Appointment detail -->
+  <div id="detail" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 class="font-semibold text-slate-900">Appointment <span id="d-ref" class="text-slate-500 font-normal"></span></h2>
+        <button data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button>
+      </div>
+      <div class="p-6 space-y-5">
+        <div id="d-info" class="text-sm space-y-1"></div>
+        <button id="pay-now" class="hidden w-full py-2.5 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600">Complete payment</button>
+        <div id="d-extra" class="flex flex-wrap items-center justify-between gap-2 text-sm"></div>
+        <div>
+          <h3 class="text-sm font-semibold text-slate-900 mb-2">Messages with your doctor</h3>
+          <div id="d-messages" class="space-y-2 max-h-56 overflow-y-auto"></div>
+          <form id="msg-form" class="mt-2 flex gap-2">
+            <input id="msg-body" maxlength="2000" placeholder="Write a message…" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <button class="px-4 py-2 bg-sky-600 text-white text-sm font-semibold rounded-lg hover:bg-sky-700">Send</button>
+          </form>
+        </div>
+        <div id="d-actions" class="space-y-4 border-t border-slate-200 pt-4">
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900 mb-2">Reschedule</h3>
+            <div class="flex flex-wrap gap-2 items-end">
+              <input id="r-date" type="date" class="px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+              <select id="r-time" class="px-3 py-2 border border-slate-300 rounded-lg text-sm min-w-[9rem]"><option value="">Pick a date</option></select>
+            </div>
+          </div>
+          <label class="block text-sm text-slate-600">Message for the doctor (optional)
+            <textarea id="action-msg" rows="2" maxlength="1000" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm resize-none"></textarea></label>
+          <div class="flex flex-wrap gap-2">
+            <button id="r-btn" disabled class="px-4 py-2 bg-sky-600 text-white text-sm font-semibold rounded-lg hover:bg-sky-700 disabled:bg-slate-300">Reschedule</button>
+            <button id="c-btn" class="px-4 py-2 border border-red-300 text-red-700 text-sm font-semibold rounded-lg hover:bg-red-50">Cancel appointment</button>
+          </div>
+          <p id="refund-hint" class="text-xs text-slate-500"></p>
+        </div>
+        <p id="d-msg" class="hidden"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Uploaded prescription: compare quotations and book -->
+  <div id="upd" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl max-h-[94vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 class="font-semibold text-slate-900">Quotations <span id="upd-ref" class="text-slate-500 font-normal"></span></h2>
+        <div class="flex items-center gap-3"><a id="upd-file" target="_blank" class="text-sm text-sky-700 hover:underline">View prescription ↗</a>
+          <button data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button></div>
+      </div>
+      <div id="upd-body" class="p-6 space-y-6 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- Prescription & price comparison -->
+  <div id="rx" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl max-h-[94vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 class="font-semibold text-slate-900">Prescription <span id="rx-ref" class="text-slate-500 font-normal"></span></h2>
+        <div class="flex items-center gap-3"><a id="rx-print" target="_blank" class="text-sm text-sky-700 hover:underline">View / print ↗</a>
+          <button data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button></div>
+      </div>
+      <div class="p-6 space-y-6">
+        <div id="rx-info" class="text-sm"></div>
+        <div id="rx-refill" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm"></div>
+        <div id="rx-tests" class="hidden rounded-xl border border-cyan-200 bg-cyan-50/40 p-4 space-y-3 text-sm"></div>
+        <div id="rx-items-wrap" class="overflow-x-auto">
+          <table class="data-table w-full text-sm border border-slate-200 rounded-lg">
+            <thead class="bg-slate-50"><tr><th class="px-3 py-2">Sr No</th><th class="px-3 py-2">Medicine</th><th class="px-3 py-2">Dosage</th><th class="px-3 py-2">Duration</th><th class="px-3 py-2">Quantity</th><th class="px-3 py-2">Status</th></tr></thead>
+            <tbody id="rx-items" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div id="rx-compare">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h3 class="font-semibold text-slate-900">Best offers near you <span id="rx-live" class="ml-1 text-xs font-normal text-emerald-700"></span></h3>
+            <div id="rx-radius" class="text-sm text-slate-600"></div>
+          </div>
+          <div id="rx-share" class="mb-3"></div>
+          <div id="rx-highlights" class="grid sm:grid-cols-3 gap-3 mb-3"></div>
+          <div class="flex flex-wrap items-center gap-1 mb-2 text-xs font-medium">
+            <span class="text-slate-500 mr-1">Sort by</span>
+            <button data-sort="cheapest" class="sort-btn px-2.5 py-1 rounded-full border border-slate-300">Cheapest</button>
+            <button data-sort="discount" class="sort-btn px-2.5 py-1 rounded-full border border-slate-300">Best discount</button>
+            <button data-sort="fastest" class="sort-btn px-2.5 py-1 rounded-full border border-slate-300">Fastest delivery</button>
+            <button data-sort="nearest" class="sort-btn px-2.5 py-1 rounded-full border border-slate-300">Nearest</button>
+          </div>
+          <p class="text-xs text-slate-500 mb-3">“Quote” = price sent by the pharmacy for your prescription. “Estimate” = from the pharmacy's price list or its flat discount on MRP; may include same-salt generic substitutes your doctor allowed. Discount is measured against the printed MRP.</p>
+          <div class="overflow-x-auto">
+            <table class="data-table w-full text-sm">
+              <thead class="bg-slate-50"><tr><th class="px-3 py-2">Sr No</th><th class="px-3 py-2">Pharmacy</th><th class="px-3 py-2">Distance (km)</th><th class="px-3 py-2">Price</th>
+                <th class="px-3 py-2">Discount</th><th class="px-3 py-2">Medicines available</th><th class="px-3 py-2">Pickup / delivery</th><th class="px-3 py-2">Source</th><th class="px-3 py-2"></th></tr></thead>
+              <tbody id="rx-options" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <form id="order-form" class="hidden rounded-xl border-2 border-sky-200 bg-sky-50/50 p-5 space-y-4">
+          <h3 class="font-semibold text-slate-900">Order from <span id="o-store"></span></h3>
+          <div id="o-lines" class="text-sm"></div>
+          <fieldset class="space-y-1 text-sm"><legend class="font-medium mb-1">How do you want it?</legend>
+            <label class="flex items-center gap-2"><input type="radio" name="fulfilment" value="pickup" checked /> Pick up from the pharmacy</label>
+            <label id="o-delivery-opt" class="flex items-center gap-2"><input type="radio" name="fulfilment" value="delivery" /> Home delivery <span id="o-fee" class="text-slate-500"></span></label>
+          </fieldset>
+          <label id="o-address-wrap" class="hidden block text-sm text-slate-600">Delivery address<input id="o-address" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+          <fieldset class="space-y-1 text-sm"><legend class="font-medium mb-1">Payment</legend>
+            <label class="flex items-center gap-2"><input type="radio" name="pay" value="pharmacy" checked /> Pay at the pharmacy / on delivery</label>
+            <label id="o-online-opt" class="flex items-center gap-2"><input type="radio" name="pay" value="online" /> Pay online now (UPI, cards)</label>
+          </fieldset>
+          <div class="flex items-center justify-between border-t border-sky-200 pt-3">
+            <p class="text-lg font-bold">Total <span id="o-total"></span></p>
+            <div class="flex gap-2"><button type="button" id="o-cancel" class="px-4 py-2 border border-slate-300 rounded-lg text-sm">Back</button>
+              <button class="px-5 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700">Place order</button></div>
+          </div>
+        </form>
+        <p id="rx-msg" class="hidden"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    let config, me, appointments = [], when = 'upcoming', current = null, homePicker = null;
+    let rxCurrent = null, rxOptions = [], rxRadius = null, ordering = null;
+
+    // ---------- Tabs ----------
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('bg-white', t.dataset.tab === tab));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
+      history.replaceState(null, '', `#${tab}`);
+      if (tab === 'today') { MedicineToday.mount($('today-root')); FollowUps.mount($('today-followups')); }
+      if (tab === 'appointments') { loadAppointments(); FollowUps.mount($('appt-followups')); }
+      if (tab === 'prescriptions') loadPrescriptions();
+      if (tab === 'orders') loadOrders();
+      if (tab === 'history') loadHistory();
+      if (tab === 'labs') loadLabBookings();
+      if (tab === 'uploads') loadUploads();
+      if (tab === 'records') loadRecords();
+      if (tab === 'profile') { initProfile(); HealthProfile.mount($('hp-root')); FamilyCard.mount($('family-root')); }
+      if (tab === 'records') loadFamilyPicker();
+    }
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+    document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.goto)));
+
+    // ---------- Appointments ----------
+    const visitPlace = a => a.visit_type === 'home' ? '🏠 Home visit' : a.visit_type === 'video' ? '🎥 Video consultation'
+      : `${escapeHtml(a.clinic_name)}, ${escapeHtml(a.city)}`;
+    // The video room opens 10 minutes before and stays open until 30 minutes after the slot (server checks again)
+    const joinable = a => a.visit_type === 'video' && a.status === 'confirmed'
+      && new Date() >= new Date(P.startOf(a) - 10 * 60000) && new Date() <= new Date(+P.startOf(a) + (a.duration + 30) * 60000);
+    // A video call that's on right now stays under Upcoming so it can be joined
+    const isUpcoming = a => (['confirmed', 'pending_payment', 'requested', 'awaiting_patient'].includes(a.status) && P.startOf(a) > new Date()) || joinable(a);
+    function apptCard(a) {
+      return `
+        <button data-id="${a.id}" class="w-full text-left bg-white rounded-xl border border-slate-200 p-4 hover:border-sky-300 hover:shadow-sm transition flex flex-col sm:flex-row sm:items-center gap-3">
+          <div class="sm:w-40 shrink-0"><p class="font-semibold text-slate-900">${escapeHtml(P.prettyDate(a.appointment_date))}</p>
+            <p class="text-sm text-slate-600">${escapeHtml(P.prettyTime(a.appointment_time))} · ${a.duration} min</p></div>
+          <div class="flex-1 min-w-0"><p class="font-medium text-slate-900">${escapeHtml(a.doctor_name)}</p>
+            <p class="text-sm text-slate-600 truncate">${escapeHtml(a.service_name)} · ${visitPlace(a)}</p>
+            ${a.member_name ? `<p class="text-xs text-violet-700">For ${escapeHtml(a.member_name)} (${escapeHtml(a.member_relation)})</p>` : ''}
+            ${joinable(a) ? `<span role="link" tabindex="0" data-join="${a.video_join}" class="inline-block mt-1 px-3 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold">🎥 Join video call</span>` : ''}
+            ${a.status === 'awaiting_patient' ? '<p class="text-xs font-semibold text-violet-700">The doctor sent charges: open to accept or decline</p>' : ''}</div>
+          <div class="flex sm:flex-col items-center sm:items-end gap-2">${P.badge(a.status)}
+            <span class="text-xs text-slate-500">${P.rupees(a.total_fee)} · ${escapeHtml(P.paymentLabel(a))}</span>
+            ${a.message_count ? `<span class="text-xs text-sky-700">${a.message_count} message(s)</span>` : ''}</div>
+        </button>`;
+    }
+    async function loadAppointments() {
+      appointments = await api('/api/my/appointments');
+      document.querySelectorAll('.when').forEach(b => b.classList.toggle('bg-white', b.dataset.when === when));
+      const items = appointments.filter(a => when === 'upcoming' ? isUpcoming(a) : !isUpcoming(a));
+      if (when === 'upcoming') items.sort((a, b) => P.startOf(a) - P.startOf(b));
+      $('appt-list').innerHTML = items.length ? items.map(apptCard).join('')
+        : `<div class="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">${when === 'upcoming' ? 'No upcoming appointments. <a href="/" class="text-sky-700 hover:underline">Find a doctor nearby</a>' : 'Nothing here yet.'}</div>`;
+    }
+    document.querySelectorAll('.when').forEach(b => b.addEventListener('click', () => { when = b.dataset.when; loadAppointments(); }));
+
+    async function openDetail(id) {
+      current = await api(`/api/appointments/${id}`);
+      const a = current;
+      $('d-ref').textContent = a.reference;
+      $('d-info').innerHTML = `
+        <div class="flex items-center gap-2 mb-2">${P.badge(a.status)}<span class="text-xs text-slate-500">${escapeHtml(P.paymentLabel(a))}</span></div>
+        <p class="text-base font-semibold text-slate-900">${escapeHtml(P.prettyDate(a.appointment_date))} at ${escapeHtml(P.prettyTime(a.appointment_time))}</p>
+        <p>${escapeHtml(a.service_name)} (${a.duration} min) · <strong>${P.rupees(a.total_fee)}</strong>${a.travel_fee ? ` <span class="text-slate-500">(${P.rupees(a.fee)} visit + ${P.rupees(a.travel_fee)} travel)</span>` : ''}</p>
+        <p>With <a href="/doctors/${encodeURIComponent(a.doctor_slug)}" class="text-sky-700 hover:underline">${escapeHtml(a.doctor_name)}</a></p>
+        <p class="text-slate-600">${a.visit_type === 'home' ? `🏠 Home visit at ${escapeHtml(a.visit_address || '')}`
+          : a.visit_type === 'video' ? '🎥 Video consultation, joined from this page' : `${escapeHtml(a.clinic_name)}, ${escapeHtml(a.address)}, ${escapeHtml(a.city)}`}</p>
+        ${a.member_name ? `<p class="text-violet-700">For ${escapeHtml(a.member_name)} (${escapeHtml(a.member_relation)})</p>` : ''}
+        ${a.visit_type === 'video' && a.status === 'confirmed' ? (joinable(a)
+          ? `<a href="${a.video_join}" target="_blank" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold">🎥 Join video call</a>`
+          : `<p class="mt-2 rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-sky-900">The video room opens 10 minutes before the appointment. A “Join video call” button appears here and in your list.</p>`) : ''}
+        ${a.status === 'requested' ? '<p class="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-amber-900">Waiting for the doctor to send the charges and confirm the time.</p>' : ''}
+        ${a.status === 'awaiting_patient' ? `<div class="mt-2 rounded-lg bg-violet-50 border border-violet-200 p-3 space-y-2">
+          <p class="font-semibold text-violet-900">The doctor sent the charges</p>
+          <p>Visit fee ${P.rupees(a.fee)} + travel ${P.rupees(a.travel_fee)} = <strong>${P.rupees(a.total_fee)}</strong>, paid to the doctor at the visit.</p>
+          ${a.visit_note ? `<p class="text-slate-700">Doctor's note: “${escapeHtml(a.visit_note)}”</p>` : ''}
+          <div class="flex gap-2"><button type="button" id="hv-accept" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg">Accept & confirm visit</button>
+            <button type="button" id="hv-decline" class="px-4 py-2 border border-red-300 text-red-700 font-semibold rounded-lg">Decline</button></div></div>` : ''}
+        ${a.reason ? `<p class="text-slate-600">Your note: “${escapeHtml(a.reason)}”</p>` : ''}
+        ${a.status === 'confirmed' && P.startOf(a) > new Date() ? `<p class="mt-2"><button type="button" id="att-yes" class="px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-800 text-sm font-semibold hover:bg-emerald-50">I will be there</button>
+          <span class="text-xs text-slate-500 ml-1">Plans changed? Reschedule or cancel below so someone else can use the time.</span></p>` : ''}`;
+      $('d-messages').innerHTML = P.messagesHtml(a.messages);
+      const attend = document.getElementById('att-yes');
+      if (attend) attend.addEventListener('click', async () => {
+        try { await api(`/api/appointments/${a.id}/confirm-attendance`, { method: 'POST' }); attend.disabled = true; attend.textContent = 'Thanks, see you there'; }
+        catch (err) { P.toast(err.message, 'error'); }
+      });
+      const upcoming = a.status === 'confirmed' && P.startOf(a) > new Date();
+      setTimeout(() => {
+        const acc = document.getElementById('hv-accept'), dec = document.getElementById('hv-decline');
+        if (acc) acc.onclick = async () => {
+          try { await api(`/api/appointments/${a.id}/accept-visit`, { method: 'POST' }); P.toast('Home visit confirmed. The doctor has been told.', 'success'); await openDetail(a.id); loadAppointments(); }
+          catch (err) { P.toast(err.message, 'error'); }
+        };
+        if (dec) dec.onclick = async () => {
+          try { await api(`/api/appointments/${a.id}/cancel`, { method: 'POST', body: { message: 'The patient declined the home-visit charges.' } }); P.toast('Request declined', 'success'); P.closeModal('detail'); loadAppointments(); }
+          catch (err) { P.toast(err.message, 'error'); }
+        };
+      });
+      $('d-actions').classList.toggle('hidden', !upcoming);
+      $('pay-now').classList.toggle('hidden', a.status !== 'pending_payment');
+      $('d-extra').innerHTML = (['paid', 'refunded', 'not_refundable'].includes(a.payment_status)
+          ? `<a href="/invoice?type=appointment&id=${encodeURIComponent(a.id)}" target="_blank" class="text-sky-700 hover:underline">View receipt ↗</a>` : '<span></span>')
+        + (a.status === 'completed' ? rateHtml('appointment', a.id, a.my_rating) : '');
+      $('msg-form').classList.toggle('hidden', ['pending_payment', 'expired'].includes(a.status));
+      $('r-date').min = P.isoDate(P.today());
+      $('r-date').max = P.isoDate(P.addDays(P.today(), config.max_advance_days));
+      $('r-date').value = '';
+      $('r-time').innerHTML = '<option value="">Pick a date</option>';
+      $('r-btn').disabled = true;
+      $('action-msg').value = '';
+      const hoursLeft = (P.startOf(a) - new Date()) / 3600000;
+      $('refund-hint').textContent = a.payment_status === 'paid'
+        ? (hoursLeft >= config.refund_cutoff_hours ? `Cancelling now gives a full refund of ${P.rupees(a.fee)}.`
+           : `Less than ${config.refund_cutoff_hours} hours to go: cancelling now is not refundable.`) : '';
+      P.setMessage($('d-msg'), '', 'info');
+      P.openModal('detail');
+    }
+    $('appt-list').addEventListener('click', e => { const j = e.target.closest('[data-join]'); if (j) { window.open(j.dataset.join, '_blank'); return; } const b = e.target.closest('button[data-id]'); if (b) openDetail(b.dataset.id).catch(err => P.toast(err.message, 'error')); });
+    $('msg-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = $('msg-body').value.trim();
+      if (!body) return;
+      try { await api(`/api/appointments/${current.id}/messages`, { method: 'POST', body: { body } }); $('msg-body').value = ''; await openDetail(current.id); loadAppointments(); }
+      catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+    $('r-date').addEventListener('change', e => { $('r-btn').disabled = true; if (e.target.value) P.loadRescheduleTimes(current, e.target.value, $('r-time')); });
+    $('r-time').addEventListener('change', e => { $('r-btn').disabled = !e.target.value; });
+    $('r-btn').addEventListener('click', async () => {
+      try {
+        await api(`/api/appointments/${current.id}/reschedule`, { method: 'POST', body: {
+          appointment_date: $('r-date').value, appointment_time: $('r-time').value, message: $('action-msg').value.trim() || null } });
+        P.toast('Appointment rescheduled. The doctor has been notified.', 'success');
+        await openDetail(current.id); loadAppointments();
+      } catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+    $('c-btn').addEventListener('click', async () => {
+      if (!confirm('Cancel this appointment?')) return;
+      try {
+        const res = await api(`/api/appointments/${current.id}/cancel`, { method: 'POST', body: { message: $('action-msg').value.trim() || null } });
+        P.toast(res.refund_note || 'Appointment cancelled. The doctor has been notified.', 'success');
+        P.closeModal('detail'); loadAppointments();
+      } catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+    $('pay-now').addEventListener('click', async () => {
+      try {
+        const checkout = await api(`/api/appointments/${current.id}/payment`);
+        const result = await P.payOnline(current.id, checkout);
+        P.toast(result.outcome === 'confirmed' ? 'Payment received. Booking confirmed!' : 'Slot was taken meanwhile; a full refund has been issued.', result.outcome === 'confirmed' ? 'success' : 'error');
+        await openDetail(current.id); loadAppointments();
+      } catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+
+    // ---------- Ratings ----------
+    function rateHtml(kind, id, rating) {
+      if (rating) return `<span class="text-amber-500 text-sm" aria-label="You rated ${rating} out of 5">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</span>`;
+      return `<span class="inline-flex items-center gap-0.5 text-sm"><span class="text-xs text-slate-500 mr-1">Rate:</span>${[1, 2, 3, 4, 5].map(n =>
+        `<button type="button" data-rate="${kind}" data-rate-id="${id}" data-stars="${n}" aria-label="${n} star${n > 1 ? 's' : ''}" class="text-slate-300 hover:text-amber-500 text-lg leading-none">★</button>`).join('')}</span>`;
+    }
+    document.addEventListener('click', async e => {
+      const b = e.target.closest('[data-rate]');
+      if (!b) return;
+      e.stopPropagation();
+      const comment = prompt('Anything to add? (optional)') || null;
+      try {
+        await api('/api/reviews', { method: 'POST', body: { [b.dataset.rate === 'order' ? 'order_id' : 'appointment_id']: b.dataset.rateId,
+          rating: Number(b.dataset.stars), comment } });
+        P.toast('Thanks for your rating!', 'success');
+        b.dataset.rate === 'order' ? loadOrders() : (P.closeModal('detail'), loadAppointments());
+      } catch (err) { P.toast(err.message, 'error'); }
+    }, true);
+
+    // ---------- Prescriptions ----------
+    function rxState(rx) {
+      if (rx.status === 'cancelled') return ['Cancelled', 'bg-slate-200 text-slate-600'];
+      if (!rx.live) return ['Expired', 'bg-slate-200 text-slate-600'];
+      if (!rx.remaining_item_ids.length && !(rx.remaining_test_ids || []).length) return ['All ordered', 'bg-emerald-100 text-emerald-800'];
+      if (!rx.remaining_item_ids.length) return ['Book tests', 'bg-cyan-600 text-white'];
+      return ['Compare prices', 'bg-sky-600 text-white'];
+    }
+    async function loadPrescriptions() {
+      const list = await api('/api/my/prescriptions');
+      $('rx-list').innerHTML = list.length ? list.map(rx => {
+        const [label, cls] = rxState(rx);
+        return `
+          <button data-rx="${rx.id}" class="w-full text-left bg-white rounded-xl border border-slate-200 p-4 hover:border-sky-300 hover:shadow-sm transition flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="sm:w-40 shrink-0"><p class="font-semibold">${escapeHtml(P.prettyDate(rx.created_at.slice(0, 10)))}</p><p class="text-xs text-slate-500">${escapeHtml(rx.reference)}</p></div>
+            <div class="flex-1 min-w-0"><p class="font-medium">${escapeHtml(rx.doctor.name)}${rx.refill_number ? ` <span class="text-xs text-emerald-700">· Refill ${rx.refill_number}</span>` : ''}</p>
+              ${(rx.conditions || []).length ? `<p class="text-xs text-slate-500 truncate">${rx.conditions.map(c => escapeHtml(c.name)).join(', ')}</p>` : ''}
+              <p class="text-sm text-slate-600 truncate">${rx.items.map(i => escapeHtml(i.name)).concat((rx.tests || []).map(t => '🧪 ' + escapeHtml(t.name))).join(', ')}</p></div>
+            <div class="flex sm:flex-col items-center sm:items-end gap-1">
+              <span class="px-3 py-1 rounded-full text-xs font-semibold ${cls}">${label}</span>
+              ${rx.refills && rx.refills.can_refill ? '<span class="text-xs font-semibold text-emerald-700">Refill available</span>' : ''}</div>
+          </button>`;
+      }).join('') : '<div class="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">No prescriptions yet. They appear here when your doctor issues one.</div>';
+    }
+    $('rx-list').addEventListener('click', e => { const b = e.target.closest('button[data-rx]'); if (b) openRx(b.dataset.rx).catch(err => P.toast(err.message, 'error')); });
+
+    async function openRx(id, radius) {
+      if (!rxCurrent || rxCurrent.id !== id) { stopPolling(); rxSeenQuotes = null; }
+      rxCurrent = await api(`/api/prescriptions/${id}`);
+      const rx = rxCurrent;
+      $('rx-ref').textContent = rx.reference;
+      $('rx-print').href = `/prescriptions/${rx.id}`;
+      $('rx-info').innerHTML = `
+        <p><strong>${escapeHtml(rx.doctor.name)}</strong>, ${escapeHtml(rx.doctor.qualification)} · Reg. ${escapeHtml(rx.doctor.registration_no)}</p>
+        <p class="text-slate-600">${escapeHtml(rx.doctor.clinic)}</p>
+        ${(rx.conditions || []).length ? `<p class="mt-1">Diagnosis: ${rx.conditions.map(c => `${escapeHtml(c.name)} <span class="text-xs text-slate-500">(${escapeHtml(c.code)})</span>`).join(', ')}</p>` : ''}
+        ${rx.diagnosis ? `<p class="${(rx.conditions || []).length ? '' : 'mt-1'}">${(rx.conditions || []).length ? 'Notes' : 'Diagnosis'}: ${escapeHtml(rx.diagnosis)}</p>` : ''}
+        ${rx.refill_of ? `<p class="text-emerald-700">Refill ${rx.refill_number} of ${escapeHtml(rx.refill_of)}</p>` : ''}
+        ${rx.advice ? `<p>Advice: ${escapeHtml(rx.advice)}</p>` : ''}
+        <p class="text-xs text-slate-500 mt-1">Valid until ${escapeHtml(P.prettyDate(rx.valid_until.slice(0, 10)))}</p>`;
+      const remaining = new Set(rx.remaining_item_ids);
+      $('rx-items').innerHTML = rx.items.map((i, n) => `
+        <tr><td class="num px-3 py-2">${n + 1}</td>
+          <td class="txt px-3 py-2"><p class="font-medium">${escapeHtml(i.name)}${i.is_long_term ? ' <span class="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Long-term</span>' : ''}</p><p class="text-xs text-slate-500">${escapeHtml([i.generic_name, i.strength, i.form].filter(Boolean).join(' · '))}${i.allow_substitute ? '' : ' · <strong>no substitute</strong>'}</p>
+            ${i.instructions ? `<p class="text-xs text-slate-500">${escapeHtml(i.instructions)}</p>` : ''}</td>
+          <td class="txt px-3 py-2">${escapeHtml(i.dosage || '')}</td><td class="txt px-3 py-2">${escapeHtml(i.duration || '')}</td>
+          <td class="num px-3 py-2">${P.num(i.quantity)}</td>
+          <td class="txt px-3 py-2 text-xs">${remaining.has(i.id) ? 'To buy' : '<span class="text-emerald-700 font-medium">Ordered</span>'}</td></tr>`).join('');
+      $('order-form').classList.add('hidden');
+      $('rx-items-wrap').classList.toggle('hidden', !rx.items.length);
+      renderRefill(rx);
+      renderTests(rx);
+      P.setMessage($('rx-msg'), '', 'info');
+      P.openModal('rx');
+      $('rx-compare').classList.toggle('hidden', !(rx.live && remaining.size));
+      if (rx.live && remaining.size) await loadOptions(radius);
+      if (rx.live && (rx.remaining_test_ids || []).length) loadLabOptions(rx);
+    }
+
+    // Doctor-approved refills of long-term medicines
+    function renderRefill(rx) {
+      const r = rx.refills;
+      const box = $('rx-refill');
+      if (!r || !r.allowed || rx.refill_number) { box.classList.add('hidden'); return; }
+      box.classList.remove('hidden');
+      box.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-3">
+        <div><p class="font-semibold text-emerald-900">Refills: ${r.left} of ${r.allowed} left</p>
+          <p class="text-emerald-800 text-xs">${r.can_refill ? 'Your doctor pre-approved refills of the long-term medicines. We send a refill to nearby pharmacies for prices.'
+            : escapeHtml(r.reason || '')}${r.until ? ` · Refills valid until ${escapeHtml(P.prettyDate(r.until.slice(0, 10)))}` : ''}</p></div>
+        ${r.can_refill ? '<button type="button" id="refill-btn" class="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700">Refill now</button>' : ''}</div>`;
+      const btn = $('refill-btn');
+      if (btn) btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          const refill = await api(`/api/prescriptions/${rx.id}/refill`, { method: 'POST' });
+          P.toast(`Refill ${refill.reference} sent to ${refill.pharmacies_notified} pharmacies nearby`, 'success');
+          loadPrescriptions();
+          await openRx(refill.id);
+        } catch (err) { btn.disabled = false; P.toast(err.message, 'error'); }
+      });
+    }
+
+    // ---------- Tests on a prescription: compare labs and book ----------
+    const LAB_STATUS = { booked: ['Booked', 'bg-sky-100 text-sky-800'], accepted: ['Confirmed by lab', 'bg-indigo-100 text-indigo-800'],
+      sample_collected: ['Sample collected', 'bg-amber-100 text-amber-800'], report_ready: ['Report ready', 'bg-emerald-600 text-white'],
+      completed: ['Completed', 'bg-emerald-100 text-emerald-800'], rejected: ['Rejected', 'bg-red-100 text-red-700'], cancelled: ['Cancelled', 'bg-slate-200 text-slate-600'] };
+    const labPill = s => { const [l, c] = LAB_STATUS[s] || [s, 'bg-slate-100']; return `<span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${c}">${escapeHtml(l)}</span>`; };
+    const hours = h => h == null ? '—' : h < 24 ? `${h} h` : `${Math.round(h / 24 * 10) / 10} day${h >= 48 ? 's' : ''}`;
+    let labSort = 'cheapest', labData = null;
+    function renderTests(rx) {
+      const box = $('rx-tests');
+      const tests = rx.tests || [];
+      box.classList.toggle('hidden', !tests.length);
+      if (!tests.length) return;
+      box.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-semibold text-slate-900">Tests your doctor suggested</h3>
+          <div class="flex gap-1 text-xs" id="lab-sorts">${['cheapest', 'fastest', 'nearest'].map(k => `<button type="button" data-lab-sort="${k}" class="px-2.5 py-1 rounded-full border border-slate-300 ${k === labSort ? 'bg-slate-800 text-white' : ''}">${{ cheapest: 'Cheapest', fastest: 'Fastest report', nearest: 'Nearest' }[k]}</button>`).join('')}</div></div>
+        <ul class="flex flex-wrap gap-1.5">${tests.map(t => `<li class="px-2 py-1 rounded-full text-xs ${t.booked ? 'bg-emerald-100 text-emerald-800' : 'bg-white border border-cyan-200'}">${escapeHtml(t.name)}${t.fasting ? ' · fasting' : ''}${t.booked ? ' ✓ booked' : ''}</li>`).join('')}</ul>
+        ${(rx.lab_bookings || []).map(b => `<p class="text-xs">${labPill(b.status)} ${escapeHtml(b.lab_name)} · ${escapeHtml(b.reference)} · ${P.money(b.total_paise)}${b.record_id ? ` · <a href="/api/records/${b.record_id}/file" target="_blank" class="text-sky-700 underline">View report</a>` : ''}</p>`).join('')}
+        <div id="lab-opts">${rx.live && (rx.remaining_test_ids || []).length ? '<p class="text-slate-500">Finding labs near you…</p>' : ''}</div>`;
+    }
+    async function loadLabOptions(rx) {
+      labData = await api(`/api/prescriptions/${rx.id}/lab-options?sort=${labSort}`);
+      const d = labData, el = $('lab-opts');
+      if (!d.has_location) { el.innerHTML = '<p>Set your home location (Profile) to find labs near you.</p>'; return; }
+      const shareBtn = !d.shared || !d.options.length ? `<button type="button" id="lab-share" class="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold">${d.shared ? 'Ask labs within 10 km' : 'Send to labs near me'}</button>` : '';
+      const tag = (label, colour, o, main) => o ? `<button type="button" data-lab-pick="${o.lab_id}" class="text-left rounded-xl border-2 border-slate-200 hover:border-slate-400 bg-white p-3">
+          <span class="inline-block px-2 py-0.5 rounded-full text-white text-[11px] font-semibold ${colour}">${label}</span>
+          <p class="text-lg font-bold mt-1">${main}</p><p class="text-xs text-slate-600">${escapeHtml(o.lab_name)} · ${P.km(o.distance_km)}</p></button>`
+        : `<div class="rounded-xl border border-dashed border-slate-300 p-3 text-xs text-slate-500"><p class="font-semibold text-slate-700">${label}</p>Not available yet</div>`;
+      const h = d.highlights;
+      el.innerHTML = (d.options.length ? `<div class="grid sm:grid-cols-3 gap-2">
+          ${tag('Cheapest', 'bg-emerald-600', h.cheapest, h.cheapest && P.money(h.cheapest.subtotal_paise))}
+          ${tag('Fastest report', 'bg-amber-500', h.fastest, h.fastest && hours(h.fastest.report_hours))}
+          ${tag('Home collection', 'bg-violet-600', h.home_collection, h.home_collection && `${P.money(h.home_collection.subtotal_paise + h.home_collection.collection_fee_paise)}`)}</div>`
+        + P.table([
+          { label: 'Lab', render: o => `<p class="font-medium">${escapeHtml(o.lab_name)}${o.nabl_no ? ' <span class="text-[11px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">NABL</span>' : ''}</p><p class="text-xs text-slate-500">${escapeHtml(o.address)}</p>` },
+          { label: 'Distance', num: true, render: o => P.km(o.distance_km) },
+          { label: 'Price', num: true, render: o => `<strong>${P.money(o.subtotal_paise)}</strong>${o.discount_percent ? `<p class="text-xs text-emerald-700">${o.discount_percent}% off</p>` : ''}` },
+          { label: 'Tests available', num: true, render: o => `${o.available} of ${o.tests}` },
+          { label: 'Report in', num: true, render: o => hours(o.report_hours) },
+          { label: 'Home collection', render: o => o.home_collection ? `Yes · ${o.collection_fee_paise ? P.money(o.collection_fee_paise) : 'free'}` : 'Visit lab' },
+          { label: 'Source', render: o => o.source === 'quote' ? '<span class="text-xs text-emerald-700">Quote</span>' : '<span class="text-xs text-slate-500">Price list</span>' },
+          { label: '', render: o => `<button type="button" data-lab-pick="${o.lab_id}" class="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold">Book</button>` },
+        ], d.options) : `<p class="text-slate-600">${d.shared ? 'Labs near you are being asked for prices. Check back soon.' : 'Your tests haven\'t been sent to labs yet.'}</p>`)
+        + (shareBtn ? `<div class="mt-2">${shareBtn}</div>` : '') + '<div id="lab-book"></div>';
+    }
+    $('rx-tests').addEventListener('click', async e => {
+      const sortBtn = e.target.closest('[data-lab-sort]');
+      if (sortBtn) { labSort = sortBtn.dataset.labSort; renderTests(rxCurrent); return loadLabOptions(rxCurrent).catch(err => P.toast(err.message, 'error')); }
+      if (e.target.id === 'lab-share') {
+        try {
+          const res = await api(`/api/prescriptions/${rxCurrent.id}/lab-share`, { method: 'POST', body: labData.shared ? { radius: 10 } : { use_home: true } });
+          P.toast(`Sent to ${res.labs_notified} labs`, 'success');
+          return loadLabOptions(rxCurrent);
+        } catch (err) { return P.toast(err.message, 'error'); }
+      }
+      const pick = e.target.closest('[data-lab-pick]');
+      if (pick) {
+        const o = labData.options.find(x => String(x.lab_id) === pick.dataset.labPick);
+        $('lab-book').innerHTML = `<form id="lab-book-form" class="mt-3 rounded-lg border-2 border-cyan-200 bg-white p-3 grid sm:grid-cols-2 gap-2">
+          <p class="sm:col-span-2 font-semibold">Book ${escapeHtml(o.lab_name)} · ${P.money(o.subtotal_paise)} for ${o.available} test(s)</p>
+          <label class="text-slate-600">How<select name="collection" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg">
+            <option value="visit">I'll visit the lab</option>${o.home_collection ? `<option value="home">Collect at home (+${P.money(o.collection_fee_paise)})</option>` : ''}</select></label>
+          <label class="text-slate-600">Preferred date<input name="preferred_date" type="date" min="${P.isoDate(P.today())}" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">Preferred time<input name="preferred_time" type="time" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">Address for home collection<input name="address" value="${escapeHtml((me.home || {}).address || '')}" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+          <p class="sm:col-span-2 text-xs text-slate-500">Pay at the lab or to the collection agent. ${o.lines.filter(l => !l.available).length ? `Not available here: ${o.lines.filter(l => !l.available).map(l => escapeHtml(l.name)).join(', ')} (book those elsewhere).` : ''}</p>
+          <div class="sm:col-span-2 flex justify-end"><button class="px-4 py-2 bg-cyan-600 text-white font-semibold rounded-lg">Confirm booking</button></div></form>`;
+        $('lab-book-form').addEventListener('submit', async ev => {
+          ev.preventDefault();
+          const f = ev.target.elements;
+          try {
+            const b = await api(`/api/prescriptions/${rxCurrent.id}/lab-bookings`, { method: 'POST', body: { lab_id: o.lab_id, collection: f.collection.value,
+              preferred_date: f.preferred_date.value || null, preferred_time: f.preferred_time.value || null, address: f.address.value.trim() || null } });
+            P.toast(`Booked ${b.reference} at ${b.lab_name}. The lab will confirm.`, 'success');
+            if (window.PyshioChat) PyshioChat.open(b.chat_id);
+            await openRx(rxCurrent.id);
+            loadPrescriptions();
+          } catch (err) { P.toast(err.message, 'error'); }
+        });
+        $('lab-book').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+
+    // ---------- Uploaded prescriptions ----------
+    let updCurrent = null, updSort = 'cheapest';
+    const UO = { placed: ['Waiting for them to accept', 'bg-sky-100 text-sky-800'], accepted: ['Accepted', 'bg-indigo-100 text-indigo-800'],
+      ready: ['Ready · show your code', 'bg-emerald-600 text-white'], sample_collected: ['Sample collected', 'bg-amber-100 text-amber-800'],
+      report_ready: ['Report ready', 'bg-emerald-600 text-white'], completed: ['Completed', 'bg-emerald-100 text-emerald-800'],
+      rejected: ['Rejected', 'bg-red-100 text-red-700'], cancelled: ['Cancelled', 'bg-slate-200 text-slate-600'] };
+    const uoPill = st => { const [l, c] = UO[st] || [st, 'bg-slate-100']; return `<span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${c}">${escapeHtml(l)}</span>`; };
+    const mins = m => { if (m == null) return '—'; if (m < 60) return `${m} min`; if (m < 1440) return `${Math.round(m / 6) / 10} h`;
+      const d = Math.round(m / 144) / 10; return `${d} day${d === 1 ? '' : 's'}`; };
+    async function loadUploads() {
+      const list = await api('/api/my/uploads');
+      $('up-list').innerHTML = list.length ? list.map(u => `<button type="button" data-up="${u.id}" class="w-full text-left bg-white rounded-xl border border-slate-200 p-4 hover:border-cyan-300 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div class="sm:w-44 shrink-0"><p class="font-semibold">${escapeHtml(P.prettyDate(u.created_at.slice(0, 10)))}</p><p class="text-xs text-slate-500">${escapeHtml(u.reference)}</p></div>
+          <div class="flex-1 min-w-0"><p class="font-medium">${[u.want_medicines && 'Medicines', u.want_tests && 'Lab tests'].filter(Boolean).join(' + ')}</p>
+            <p class="text-xs text-slate-500">Sent to ${u.sent_to} nearby · ${u.quotes} quotation(s)${u.note ? ' · “' + escapeHtml(u.note) + '”' : ''}</p>
+            ${u.orders.map(o => `<p class="text-xs mt-1">${uoPill(o.status)} ${escapeHtml(o.partner_name)} · ${P.money(o.total_paise)}</p>`).join('')}</div>
+          <div class="text-right">${u.best_paise != null ? `<p class="text-xs text-slate-500">Best price</p><p class="text-lg font-bold tabular-nums">${P.money(u.best_paise)}</p>` : `<p class="text-xs text-slate-500">${u.live ? 'Waiting for quotations…' : 'Closed'}</p>`}
+            <span class="text-xs font-semibold text-cyan-700">${u.quotes ? 'Compare & book →' : 'Open →'}</span></div></button>`).join('')
+        : '<p class="text-sm text-slate-500">Nothing uploaded yet.</p>';
+    }
+    $('up-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      if (!f.want_medicines.checked && !f.want_tests.checked) return P.toast('Choose medicines, lab tests or both', 'error');
+      const fd = new FormData();
+      fd.append('file', f.file.files[0]);
+      fd.append('want_medicines', f.want_medicines.checked ? 'true' : 'false');
+      fd.append('want_tests', f.want_tests.checked ? 'true' : 'false');
+      if (f.note.value.trim()) fd.append('note', f.note.value.trim());
+      fd.append('ai_read_consent', f.ai_read_consent.checked ? 'true' : 'false');
+      if (f.typed_lines.value.trim()) fd.append('typed_lines', f.typed_lines.value.trim());
+      const btn = e.submitter; if (btn) btn.disabled = true;
+      try {
+        const res = await P.upload('/api/my/uploads', fd);
+        P.toast(`Sent to ${res.pharmacies_notified} pharmacies and ${res.labs_notified} labs near you. Quotations will appear here.`, 'success');
+        e.target.reset(); f.want_medicines.checked = true;
+        loadUploads();
+        openUpload(res.id);
+      } catch (err) { P.toast(err.message, 'error'); }
+      finally { if (btn) btn.disabled = false; }
+    });
+    $('up-list').addEventListener('click', e => { const b = e.target.closest('[data-up]'); if (b) openUpload(b.dataset.up).catch(err => P.toast(err.message, 'error')); });
+
+    function optionBlock(kind, label, data) {
+      if (!data.wanted) return '';
+      const homeWord = kind === 'tests' ? 'Home collection' : 'Delivery';
+      const h = data.highlights;
+      const card = (title, colour, o, main) => o ? `<button type="button" data-pickq="${o.id}" class="text-left rounded-xl border-2 border-slate-200 hover:border-slate-400 p-3 bg-white">
+          <span class="inline-block px-2 py-0.5 rounded-full text-white text-[11px] font-semibold ${colour}">${title}</span>
+          <p class="text-lg font-bold mt-1">${main}</p><p class="text-xs text-slate-600">${escapeHtml(o.partner_name)} · ${P.km(o.distance_km)}</p></button>`
+        : `<div class="rounded-xl border border-dashed border-slate-300 p-3 text-xs text-slate-500"><p class="font-semibold text-slate-700">${title}</p>Not yet</div>`;
+      const booked = updCurrent.orders.find(o => o.partner_role === (kind === 'tests' ? 'lab' : 'pharmacy') && !['cancelled', 'rejected'].includes(o.status));
+      return `<section class="space-y-3"><div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="font-semibold text-slate-900">${label} <span class="text-xs font-normal text-slate-500">sent to ${data.sent_to} nearby · ${data.options.length} quotation(s)</span></h3></div>
+        ${booked ? `<p class="text-emerald-700 font-medium">Booked with ${escapeHtml(booked.partner_name)}. The other ${kind === 'tests' ? 'labs' : 'pharmacies'} have been told. Chat with them from the chat button.</p>` : ''}
+        ${data.options.length ? `<div class="grid sm:grid-cols-3 gap-2">
+          ${card('Cheapest', 'bg-emerald-600', h.cheapest, h.cheapest && P.money(h.cheapest.subtotal_paise))}
+          ${card('Best discount', 'bg-violet-600', h.best_discount, h.best_discount && `${h.best_discount.discount_percent}% off`)}
+          ${card(kind === 'tests' ? 'Fastest report' : 'Fastest', 'bg-amber-500', h.fastest, h.fastest && mins(h.fastest.speed_minutes))}</div>`
+          + P.table([
+            { label: kind === 'tests' ? 'Lab' : 'Pharmacy', render: o => `<p class="font-medium">${escapeHtml(o.partner_name)}${o.nabl ? ' <span class="text-[11px] px-1.5 rounded bg-sky-100 text-sky-800">NABL</span>' : ''}</p><p class="text-xs text-slate-500">${escapeHtml(o.partner_address || '')}</p>${o.note ? `<p class="text-xs text-slate-600">“${escapeHtml(o.note)}”</p>` : ''}` },
+            { label: 'Distance', num: true, render: o => P.km(o.distance_km) },
+            { label: 'Price', num: true, render: o => `<strong>${P.money(o.subtotal_paise)}</strong>${o.discount_percent ? `<p class="text-xs text-emerald-700">${o.discount_percent}% off MRP</p>` : ''}` },
+            { label: 'Items', num: true, render: o => `<span class="${o.complete ? '' : 'text-amber-700'}">${o.lines_available} of ${o.lines_total}</span>` },
+            { label: kind === 'tests' ? 'Report in' : 'Ready / delivery', num: true, render: o => kind === 'tests' ? mins(o.ready_minutes) : `${mins(o.ready_minutes)}${o.delivery_available ? ` / ${mins(o.delivery_minutes)}` : ''}` },
+            { label: homeWord, render: o => o.delivery_available ? `Yes · ${o.delivery_fee_paise ? P.money(o.delivery_fee_paise) : 'free'}` : 'No' },
+            { label: '', render: o => booked ? '' : `<button type="button" data-pickq="${o.id}" class="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold">Book</button>` },
+          ], data.options)
+          : booked ? '' : `<p class="text-slate-600">${updCurrent.live ? 'Waiting for quotations. Pharmacies and labs usually reply within minutes.' : 'No quotations came in.'}</p>`}
+        <div data-bookbox="${kind}"></div></section>`;
+    }
+    // What Pyshio read from the photo (or the names typed), with allergy / interaction warnings for the patient
+    function readBlock(read) {
+      if (!read || read.status !== 'done') return read && ['pending', 'running'].includes(read.status)
+        ? '<p class="text-xs text-slate-500">Reading your prescription…</p>' : '';
+      if (read.legible === false) return '<p class="text-xs text-amber-700">We couldn\'t read this photo clearly. Pharmacies and labs will read it themselves.</p>';
+      const meds = read.medicines.map(m => `${escapeHtml(m.name)}${m.dosage ? ` <span class="text-slate-500">${escapeHtml(m.dosage)}</span>` : ''}`).join(', ');
+      return `<section class="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm">
+          <h3 class="font-semibold text-slate-900">We read <span class="text-xs font-normal text-slate-500">(${read.engine === 'claude' ? 'automatically' : 'from what you typed'}; the pharmacist checks the original)</span></h3>
+          ${meds ? `<p class="mt-1"><span class="text-slate-600">Medicines:</span> ${meds}</p>` : ''}
+          ${read.tests.length ? `<p><span class="text-slate-600">Tests:</span> ${read.tests.map(escapeHtml).join(', ')}</p>` : ''}
+          ${read.warnings.map(w => `<p class="mt-1 rounded-lg border border-red-300 bg-red-50 px-2 py-1 text-red-800" role="alert">⚠ ${escapeHtml(w)}</p>`).join('')}
+        </section>`;
+    }
+    async function openUpload(id) {
+      updCurrent = await api(`/api/my/uploads/${id}?sort=${updSort}`);
+      const u = updCurrent;
+      $('upd-ref').textContent = u.reference;
+      $('upd-file').href = u.file_url;
+      $('upd-body').innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-slate-600">${u.live ? `Open for quotations until ${escapeHtml(P.prettyDate(u.valid_until.slice(0, 10)))}` : 'Closed'}${u.note ? ` · Your note: “${escapeHtml(u.note)}”` : ''}</p>
+          <div class="flex flex-wrap gap-1 text-xs"><span class="text-slate-500 self-center mr-1">Sort by</span>${[['cheapest', 'Cheapest'], ['discount', 'Best discount'], ['fastest', 'Fastest'], ['nearest', 'Nearest']].map(([k, l]) =>
+            `<button type="button" data-usort="${k}" class="px-2.5 py-1 rounded-full border border-slate-300 ${k === updSort ? 'bg-slate-800 text-white' : ''}">${l}</button>`).join('')}</div></div>
+        ${readBlock(u.read)}
+        ${optionBlock('medicines', 'Medicines', u.medicines)}
+        ${optionBlock('tests', 'Lab tests', u.tests)}
+        ${u.orders.length ? `<section><h3 class="font-semibold text-slate-900 mb-2">Your bookings</h3>${P.table([
+          { label: 'Booking', render: o => `<p>${escapeHtml(o.reference)}</p><p class="text-xs text-slate-500">${escapeHtml(o.partner_name)} · ${escapeHtml(o.partner_phone || '')}</p>` },
+          { label: 'Items', render: o => o.lines.map(l => `${escapeHtml(l.name)} × ${l.quantity}`).join('<br>') },
+          { label: 'Total', num: true, render: o => P.money(o.total_paise) },
+          { label: 'Status', render: o => uoPill(o.status) + (o.status === 'ready' && o.handover_code ? `<p class="mt-1 font-mono text-base font-bold">Code ${escapeHtml(o.handover_code)}</p>` : '')
+              + (o.report_record_id ? `<p><a href="/api/records/${o.report_record_id}/file" target="_blank" class="text-xs text-sky-700 underline">View report</a></p>` : '') + (o.status_reason && ['rejected', 'cancelled'].includes(o.status) ? `<p class="text-xs text-red-600">${escapeHtml(o.status_reason)}</p>` : '') },
+          { label: '', render: o => ['placed', 'accepted'].includes(o.status) ? `<button type="button" data-ucancel="${o.id}" class="text-xs text-red-600 hover:underline">Cancel</button>` : '' },
+        ], u.orders)}</section>` : ''}
+        ${u.live ? `<div class="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+          ${u.radius_km < 10 ? `<button type="button" data-widen="${u.radius_km < 5 ? 5 : 10}" class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs">Ask within ${u.radius_km < 5 ? 5 : 10} km too</button>` : ''}
+          <button type="button" data-uclose class="px-3 py-1.5 border border-red-300 text-red-700 rounded-lg text-xs">Stop quotations</button></div>` : ''}`;
+      if ($('upd').classList.contains('hidden')) P.openModal('upd');
+    }
+    $('upd-body').addEventListener('click', async e => {
+      const sort = e.target.closest('[data-usort]'), pick = e.target.closest('[data-pickq]'), cancel = e.target.closest('[data-ucancel]');
+      const widen = e.target.closest('[data-widen]'), close = e.target.closest('[data-uclose]');
+      try {
+        if (sort) { updSort = sort.dataset.usort; return openUpload(updCurrent.id); }
+        if (widen) { const r = await api(`/api/my/uploads/${updCurrent.id}/widen`, { method: 'POST', body: { radius: Number(widen.dataset.widen) } });
+          P.toast(`Sent to ${r.newly_notified} more`, 'success'); return openUpload(updCurrent.id); }
+        if (close) { await api(`/api/my/uploads/${updCurrent.id}/cancel`, { method: 'POST' }); loadUploads(); return openUpload(updCurrent.id); }
+        if (cancel) { await api(`/api/my/upload-orders/${cancel.dataset.ucancel}/cancel`, { method: 'POST', body: {} }); P.toast('Booking cancelled', 'success'); loadUploads(); return openUpload(updCurrent.id); }
+        if (pick) {
+          const all = [...updCurrent.medicines.options, ...updCurrent.tests.options];
+          const o = all.find(x => String(x.id) === pick.dataset.pickq);
+          if (!o) return;
+          const lab = o.partner_role === 'lab';
+          const box = document.querySelector(`[data-bookbox="${lab ? 'tests' : 'medicines'}"]`);
+          box.innerHTML = `<form class="rounded-xl border-2 border-cyan-200 bg-cyan-50/40 p-4 grid sm:grid-cols-2 gap-3">
+            <p class="sm:col-span-2 font-semibold">Book ${escapeHtml(o.partner_name)} · ${P.money(o.subtotal_paise)}</p>
+            <div class="sm:col-span-2 text-xs text-slate-600">${o.lines.map(l => `${l.available ? '✓' : '✗'} ${escapeHtml(l.name)} × ${l.quantity}${l.available ? ` · ${P.money(l.line_paise)}` : ' (not available here)'}`).join('<br>')}</div>
+            <label class="text-slate-600">How<select name="fulfilment" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg">
+              ${lab ? `<option value="visit">I'll visit the lab</option>${o.delivery_available ? `<option value="home">Collect sample at home (+${P.money(o.delivery_fee_paise)})</option>` : ''}`
+                : `<option value="pickup">I'll pick up</option>${o.delivery_available ? `<option value="delivery">Deliver to me (+${P.money(o.delivery_fee_paise)})</option>` : ''}`}</select></label>
+            <label class="text-slate-600">Address<input name="address" value="${escapeHtml((me.home || {}).address || '')}" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+            ${lab ? `<label class="text-slate-600">Preferred date<input name="preferred_date" type="date" min="${P.isoDate(P.today())}" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+              <label class="text-slate-600">Preferred time<input name="preferred_time" type="time" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>` : ''}
+            <p class="sm:col-span-2 text-xs text-slate-500">Pay at the counter, on delivery or to the collection agent.</p>
+            <div class="sm:col-span-2 flex justify-end"><button class="px-4 py-2 bg-cyan-600 text-white font-semibold rounded-lg">Confirm booking</button></div></form>`;
+          box.querySelector('form').addEventListener('submit', async ev => {
+            ev.preventDefault();
+            const f = ev.target.elements;
+            try {
+              const res = await api(`/api/my/uploads/${updCurrent.id}/orders`, { method: 'POST', body: { quote_id: o.id, fulfilment: f.fulfilment.value,
+                address: f.address.value.trim() || null, preferred_date: f.preferred_date ? f.preferred_date.value || null : null,
+                preferred_time: f.preferred_time ? f.preferred_time.value || null : null } });
+              P.toast(`Booked ${res.reference} with ${res.partner_name}. The others have been told you chose.`, 'success');
+              if (window.PyshioChat) PyshioChat.open(res.chat_id);
+              loadUploads(); openUpload(updCurrent.id);
+            } catch (err) { P.toast(err.message, 'error'); }
+          });
+          box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Lab tests tab ----------
+    async function loadLabBookings() {
+      const list = await api('/api/my/lab-bookings');
+      $('lab-list').innerHTML = list.length ? list.map(b => `<div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div class="sm:w-44 shrink-0"><p class="font-semibold">${escapeHtml(P.prettyDate(b.created_at.slice(0, 10)))}</p><p class="text-xs text-slate-500">${escapeHtml(b.reference)}</p></div>
+          <div class="flex-1 min-w-0"><p class="font-medium">${escapeHtml(b.lab_name)} <span class="text-xs text-slate-500">${escapeHtml(b.lab_phone || '')}</span></p>
+            <p class="text-sm text-slate-600">${b.items.map(i => escapeHtml(i.name)).join(', ')}</p>
+            <p class="text-xs text-slate-500">${b.collection === 'home' ? 'Home collection' : 'Visit the lab'}${b.preferred_date ? ` · ${escapeHtml(P.prettyDate(b.preferred_date))}` : ''}${b.preferred_time ? ` ${escapeHtml(P.prettyTime(b.preferred_time))}` : ''} · prescribed by ${escapeHtml(b.doctor_name)}</p>
+            ${b.status_reason && ['rejected', 'cancelled'].includes(b.status) ? `<p class="text-xs text-red-600">${escapeHtml(b.status_reason)}</p>` : ''}</div>
+          <div class="flex sm:flex-col items-center sm:items-end gap-2">${labPill(b.status)}<span class="text-sm font-semibold text-right tabular-nums">${P.money(b.total_paise)}</span>
+            ${b.record_id ? `<a href="/api/records/${b.record_id}/file" target="_blank" class="text-xs text-sky-700 font-semibold hover:underline">View report ↗</a>` : ''}
+            ${['booked', 'accepted'].includes(b.status) ? `<button type="button" data-lab-cancel="${b.id}" class="text-xs text-red-600 hover:underline">Cancel</button>` : ''}</div></div>`).join('')
+        : '<div class="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">No lab tests yet. When your doctor suggests tests, compare nearby labs from the prescription.</div>';
+    }
+    $('lab-list').addEventListener('click', async e => {
+      const b = e.target.closest('[data-lab-cancel]');
+      if (!b || !confirm('Cancel this lab booking?')) return;
+      try { await api(`/api/lab-bookings/${b.dataset.labCancel}/cancel`, { method: 'POST', body: {} }); P.toast('Booking cancelled', 'success'); loadLabBookings(); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Health records tab ----------
+    const KIND_LABEL = { lab_report: 'Lab report', other_report: 'Test report', prescription_copy: 'Prescription', medicine_bill: 'Medicine bill', other: 'Document' };
+    const FLAG = { high: 'text-red-700 font-semibold', low: 'text-amber-700 font-semibold', normal: 'text-emerald-700' };
+    async function loadRecords() {
+      const [records, trends, meds] = await Promise.all([api('/api/my/records'), api('/api/my/trends'), api('/api/my/medicines')]);
+      $('rec-list').innerHTML = P.table([
+        { label: 'Date', render: r => `<span class="whitespace-nowrap">${escapeHtml(P.prettyDate(r.record_date))}</span>` },
+        { label: 'Record', render: r => `<p class="font-medium">${escapeHtml(r.title)}${r.for_name ? ` <span class="text-xs font-normal text-violet-700">for ${escapeHtml(r.for_name)}</span>` : ''}</p><p class="text-xs text-slate-500">${escapeHtml(KIND_LABEL[r.kind])}${r.lab_name ? ' · ' + escapeHtml(r.lab_name) : ''}${r.doctor_name ? ' · ordered by ' + escapeHtml(r.doctor_name) : ''}</p>${r.notes ? `<p class="text-xs text-slate-500">${escapeHtml(r.notes)}</p>` : ''}` },
+        { label: 'Key results', render: r => (r.values.map(x => `<span class="${FLAG[x.flag] || ''}">${escapeHtml(x.name)}: ${escapeHtml(x.value_num ?? x.value_text)} ${escapeHtml(x.unit || '')}${x.flag && x.flag !== 'normal' ? ` (${x.flag})` : ''}</span>`).join('<br>') || '—')
+            + (r.values.length ? `<p class="mt-1 flex gap-2"><button type="button" data-explain="${r.id}" data-lang="en" class="text-xs text-sky-700 font-semibold hover:underline">Explain</button><button type="button" data-explain="${r.id}" data-lang="hi" class="text-xs text-sky-700 hover:underline">Hindi mein samjhayein</button></p>` : '') },
+        { label: 'Shared with doctors', render: r => `<label class="inline-flex items-center gap-1 text-xs"><input type="checkbox" data-share="${r.id}" ${r.share_with_doctors ? 'checked' : ''} /> ${r.share_with_doctors ? 'Yes' : 'No'}</label>` },
+        { label: '', render: r => `${r.has_file ? `<a href="${r.file_url}" target="_blank" class="text-xs text-sky-700 hover:underline whitespace-nowrap">Open ↗</a>` : ''}${r.kind !== 'lab_report' ? ` <button type="button" data-rec-del="${r.id}" class="text-xs text-red-600 hover:underline">Delete</button>` : ''}` },
+      ], records, { empty: 'No records yet. Lab reports appear here automatically; you can also add your own.' });
+      const numeric = trends.filter(t => t.points.length);
+      const TREND = { up: '↑ going up', down: '↓ coming down', flat: '→ steady' };
+      const trendNote = t => !t.direction ? '' : `<span class="ml-1 text-xs ${t.toward_normal === true ? 'text-emerald-700' : t.toward_normal === false ? 'text-red-700' : 'text-slate-500'}">${TREND[t.direction]}${t.toward_normal === true ? ', toward normal' : t.toward_normal === false ? ', away from normal' : ''}</span>`;
+      $('rec-trends').innerHTML = numeric.length ? numeric.slice(0, 8).map((t, i) => `<div><p class="text-sm font-medium">${escapeHtml(t.name)}${trendNote(t)} <span class="text-xs text-slate-500">${escapeHtml(t.unit || '')}${t.ref_low != null || t.ref_high != null ? ` · normal ${t.ref_low ?? ''}–${t.ref_high ?? ''}` : ''}</span></p>
+          <div class="h-40"><canvas id="trend-${i}"></canvas></div></div>`).join('') : '<p class="text-sm text-slate-500">Results with numbers (e.g. HbA1c, sugar, cholesterol) are charted here once you have lab reports.</p>';
+      numeric.slice(0, 8).forEach((t, i) => {
+        const band = t.ref_low != null && t.ref_high != null ? [
+          { label: 'Normal high', data: t.points.map(() => t.ref_high), borderColor: 'transparent', backgroundColor: 'rgba(16,185,129,.12)', fill: '+1', pointRadius: 0 },
+          { label: 'Normal low', data: t.points.map(() => t.ref_low), borderColor: 'transparent', pointRadius: 0, fill: false }] : [];
+        P.chart(`trend-${i}`, { type: 'line', data: { labels: t.points.map(p => P.prettyDate(p.date).replace(/^\w+, /, '')), datasets: [
+          { label: t.name, data: t.points.map(p => p.value), borderColor: '#0284c7', backgroundColor: t.points.map(p => p.flag === 'high' ? '#dc2626' : p.flag === 'low' ? '#d97706' : '#0284c7'), pointRadius: 5, tension: .2 }, ...band] },
+          options: { plugins: { legend: { display: false } } } });
+      });
+      $('med-list').innerHTML = P.table([
+        { label: 'Medicine', render: m => `<p class="font-medium ${m.active ? '' : 'line-through text-slate-400'}">${escapeHtml(m.name)}</p>` },
+        { label: 'Dosage', key: 'dosage' },
+        { label: 'Since', render: m => m.since ? escapeHtml(P.prettyDate(m.since)) : '—' },
+        { label: 'Prescribed by', key: 'prescribed_by' },
+        { label: '', render: m => `<button type="button" data-med-toggle="${m.id}" class="text-xs text-sky-700 hover:underline">${m.active ? 'Stopped taking' : 'Taking again'}</button> <button type="button" data-med-del="${m.id}" class="text-xs text-red-600 hover:underline">Remove</button>` },
+      ], meds, { empty: 'Nothing listed.' });
+      $('rec-list').meds = meds;
+      $('med-list').meds = meds;
+    }
+    async function loadFamilyPicker() {
+      const family = await FamilyCard.list().catch(() => []);
+      $('rec-form').elements.family_member_id.innerHTML = FamilyCard.options(family);
+      $('rec-form').elements.family_member_id.closest('label').classList.toggle('hidden', !family.length);
+    }
+    $('rec-add').addEventListener('click', () => { $('rec-form').classList.remove('hidden'); $('rec-form').elements.record_date.max = P.isoDate(P.today()); });
+    $('rec-cancel').addEventListener('click', () => { $('rec-form').reset(); $('rec-form').classList.add('hidden'); });
+    $('rec-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      fd.set('share_with_doctors', e.target.elements.share_with_doctors.checked ? 'true' : 'false');
+      if (!e.target.elements.file.files.length) fd.delete('file');
+      if (!fd.get('record_date')) fd.delete('record_date');
+      if (!fd.get('family_member_id')) fd.delete('family_member_id');
+      try {
+        await P.upload('/api/my/records', fd);
+        e.target.reset(); e.target.classList.add('hidden');
+        P.toast('Saved to your health records', 'success');
+        loadRecords();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('rec-list').addEventListener('change', async e => {
+      const box = e.target.closest('[data-share]');
+      if (!box) return;
+      try { await api(`/api/my/records/${box.dataset.share}`, { method: 'PATCH', body: { share_with_doctors: box.checked } }); loadRecords(); }
+      catch (err) { box.checked = !box.checked; P.toast(err.message, 'error'); }
+    });
+    $('rec-list').addEventListener('click', async e => {
+      const ex = e.target.closest('[data-explain]');
+      if (ex) {
+        const box = $('rec-explain');
+        box.classList.remove('hidden');
+        box.innerHTML = '<p class="text-slate-500">Explaining…</p>';
+        try {
+          const d = await api(`/api/records/${ex.dataset.explain}/explain?lang=${ex.dataset.lang}`);
+          box.innerHTML = `<div class="flex items-start justify-between gap-2"><h3 class="font-semibold text-slate-900">${ex.dataset.lang === 'hi' ? 'Aapki report, aasaan shabdon mein' : 'Your report in plain words'}</h3>
+              <button type="button" data-explain-close class="text-slate-500 hover:text-slate-800" aria-label="Close">✕</button></div>
+            ${d.summary ? `<p class="mt-2">${escapeHtml(d.summary)}</p>` : ''}
+            <ul class="mt-2 space-y-1.5">${d.lines.map(l => `<li class="${l.flag === 'high' ? 'text-red-800' : l.flag === 'low' ? 'text-amber-800' : 'text-slate-700'}">${escapeHtml(l.text)}</li>`).join('')}</ul>
+            <p class="mt-3 text-xs text-slate-500">${escapeHtml(d.disclaimer)}</p>`;
+          box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (err) { box.innerHTML = `<p class="text-red-700">${escapeHtml(err.message)}</p>`; }
+        return;
+      }
+      if (e.target.closest('[data-explain-close]')) { $('rec-explain').classList.add('hidden'); return; }
+      const b = e.target.closest('[data-rec-del]');
+      if (!b || !confirm('Delete this record and its file?')) return;
+      try { await api(`/api/my/records/${b.dataset.recDel}`, { method: 'DELETE' }); loadRecords(); } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('med-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        await api('/api/my/medicines', { method: 'POST', body: { name: f.name.value, dosage: f.dosage.value || null, since: f.since.value || null,
+          prescribed_by: f.prescribed_by.value || null } });
+        e.target.reset(); loadRecords();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('med-list').addEventListener('click', async e => {
+      const t = e.target.closest('[data-med-toggle]'), d = e.target.closest('[data-med-del]');
+      try {
+        if (t) {
+          const m = $('med-list').meds.find(x => String(x.id) === t.dataset.medToggle);
+          await api(`/api/my/medicines/${m.id}`, { method: 'PUT', body: { ...m, active: !m.active } });
+        }
+        if (d && confirm('Remove this medicine from your list?')) await api(`/api/my/medicines/${d.dataset.medDel}`, { method: 'DELETE' });
+        if (t || d) loadRecords();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    let rxSort = 'cheapest', rxPoll = null, rxSeenQuotes = null;
+    const TAG_LABELS = { cheapest: ['Cheapest', 'bg-emerald-600'], best_discount: ['Best discount', 'bg-violet-600'], fastest_delivery: ['Fastest delivery', 'bg-amber-500'] };
+
+    function highlightCard(kind, h) {
+      const [label, colour] = TAG_LABELS[kind];
+      if (!h) return `<div class="rounded-xl border border-dashed border-slate-300 p-3 text-xs text-slate-500"><p class="font-semibold text-slate-700">${label}</p>
+        ${kind === 'fastest_delivery' ? 'No delivery offers yet' : 'Waiting for prices'}</div>`;
+      const main = kind === 'cheapest' ? P.money(h.total_paise)
+        : kind === 'best_discount' ? `${h.discount_percent}% off MRP`
+        : `~${h.delivery_minutes} min`;
+      const sub = kind === 'cheapest' ? (h.discount_percent ? `${h.discount_percent}% off MRP` : (h.complete ? 'all medicines' : `${h.available} of ${h.items} medicines`))
+        : kind === 'best_discount' ? `${P.money(h.total_paise)} · you save ${P.money(h.discount_paise)}`
+        : `${P.money(h.total_paise)} + ${P.money(h.delivery_fee_paise || 0)} delivery`;
+      return `<button type="button" data-pick="${h.pharmacy_id}" class="text-left rounded-xl border-2 border-slate-200 hover:border-slate-400 p-3 bg-white">
+        <span class="inline-block px-2 py-0.5 rounded-full text-white text-[11px] font-semibold ${colour}">${label}</span>
+        <p class="text-lg font-bold text-slate-900 mt-1">${main}</p>
+        <p class="text-xs text-slate-600">${escapeHtml(h.store_name)} · ${P.km(h.distance_km)}</p>
+        <p class="text-xs text-slate-500">${sub}</p></button>`;
+    }
+
+    function stopPolling() { clearInterval(rxPoll); rxPoll = null; $('rx-live').textContent = ''; }
+
+    async function loadOptions(radius, { silent = false, share = null } = {}) {
+      if (!silent) $('rx-options').innerHTML = '<tr><td colspan="9" class="px-3 py-6 text-center text-slate-500">Finding pharmacies near you…</td></tr>';
+      const params = new URLSearchParams({ sort: rxSort });
+      const res = share
+        ? await api(`/api/prescriptions/${rxCurrent.id}/share?${params}`, { method: 'POST', body: share })
+        : await api(`/api/prescriptions/${rxCurrent.id}/options?${params}`);
+      if (share && res.pharmacies_notified) P.toast(`Sent to ${res.pharmacies_notified} more pharmac${res.pharmacies_notified > 1 ? 'ies' : 'y'} near you`, 'success');
+      $('rx-share').innerHTML = res.needs_location ? '' : !res.shared
+        ? `<div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+             <span>This prescription hasn't been sent to pharmacies yet.</span>
+             <button type="button" data-share="send" class="px-3 py-1.5 rounded bg-emerald-600 text-white text-xs font-semibold">Send to pharmacies near my home</button></div>`
+        : res.home_differs
+          ? `<div class="rounded-lg bg-sky-50 border border-sky-200 text-sky-900 text-sm px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+               <span>Prices are for pharmacies near your ${res.location_source === 'clinic' ? "doctor's clinic" : 'previous address'}.</span>
+               <button type="button" data-share="home" class="px-3 py-1.5 rounded bg-sky-600 text-white text-xs font-semibold">Use my current home</button></div>`
+          : '';
+      if (res.needs_location) {
+        $('rx-options').innerHTML = '<tr><td colspan="9" class="px-3 py-6 text-center text-amber-700">Set your home location (Profile tab) so nearby pharmacies can price this prescription.</td></tr>';
+        $('rx-radius').innerHTML = '';
+        $('rx-highlights').innerHTML = '';
+        return;
+      }
+      // Tell the patient when a pharmacy sends a new quote while they are watching
+      const quotes = res.options.filter(o => o.quote).map(o => `${o.pharmacy.id}:${o.quote.quote_id}`);
+      if (silent && rxSeenQuotes) {
+        const fresh = res.options.filter(o => o.quote && !rxSeenQuotes.includes(`${o.pharmacy.id}:${o.quote.quote_id}`));
+        fresh.forEach(o => P.toast(`New offer from ${o.pharmacy.store_name}: ${P.money(o.best.subtotal_paise)}`, 'success'));
+        if (!fresh.length && res.options.length === rxOptions.length) return;  // nothing changed
+      }
+      rxSeenQuotes = quotes;
+      rxOptions = res.options;
+      rxRadius = res.radius_km;
+      $('rx-radius').innerHTML = `Within ${res.radius_km} km of your ${res.location_source === 'clinic' ? "doctor's clinic" : 'home'}`
+        + res.wider_radii_km.map(r => ` · <button data-radius="${r}" class="text-sky-700 hover:underline font-medium">search ${r} km</button>`).join('');
+      const h = res.highlights;
+      $('rx-highlights').innerHTML = highlightCard('cheapest', h.cheapest) + highlightCard('best_discount', h.best_discount)
+        + highlightCard('fastest_delivery', h.fastest_delivery);
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('bg-slate-800', b.dataset.sort === rxSort));
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('text-white', b.dataset.sort === rxSort));
+      if (!rxOptions.length) {
+        $('rx-options').innerHTML = `<tr><td colspan="9" class="px-3 py-6 text-center text-slate-500">No partner pharmacies within ${res.radius_km} km yet${res.wider_radii_km.length ? ' — try a wider search' : ''}.</td></tr>`;
+      } else {
+        $('rx-options').innerHTML = rxOptions.map((o, n) => {
+          const b = o.best;
+          const tags = o.tags.map(t => `<span class="inline-block mt-1 mr-1 px-1.5 py-0.5 rounded text-white text-[10px] font-semibold ${TAG_LABELS[t][1]}">${TAG_LABELS[t][0]}</span>`).join('');
+          const source = !b ? (o.request_status === 'open' ? 'Asked' : '—') : b.source === 'quote' ? 'Quote'
+            : (b.lines.some(l => l.price_source === 'mrp_discount') ? `Estimate<br><span class="text-[11px] text-slate-500">${o.pharmacy.flat_discount_percent}% off MRP</span>` : 'Estimate');
+          const timing = `Pickup ${o.pickup_minutes} min${o.delivery_available ? `<br>Delivery ~${o.delivery_minutes} min · ${P.money(o.delivery_fee_paise)}` : '<br><span class="text-slate-400">No delivery</span>'}`;
+          return `
+            <tr class="${o.tags.length ? 'bg-emerald-50/50' : ''}">
+              <td class="num px-3 py-2">${n + 1}</td>
+              <td class="txt px-3 py-2"><p class="font-medium">${escapeHtml(o.pharmacy.store_name)}</p><p class="text-xs text-slate-500">${escapeHtml(o.pharmacy.address)}</p>
+                ${b && b.note ? `<p class="text-xs text-slate-500 italic">“${escapeHtml(b.note)}”</p>` : ''}${tags}</td>
+              <td class="num px-3 py-2">${P.num(o.pharmacy.distance_km)}</td>
+              <td class="num px-3 py-2">${b ? `<strong>${P.money(b.subtotal_paise)}</strong>${b.mrp_total_paise ? `<br><span class="text-xs text-slate-400 line-through">${P.money(b.mrp_total_paise)}</span>` : ''}` : '<span class="text-slate-400">Waiting</span>'}</td>
+              <td class="num px-3 py-2">${b && b.discount_percent ? `<span class="font-semibold text-violet-700">${b.discount_percent}%</span>` : '—'}</td>
+              <td class="num px-3 py-2">${b ? `${b.available} of ${b.items}` : '—'}</td>
+              <td class="txt px-3 py-2 text-xs">${timing}</td>
+              <td class="txt px-3 py-2 text-xs">${source}</td>
+              <td class="txt px-3 py-2">${b && b.available ? `<button data-order="${n}" class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700">Order</button>` : ''}</td>
+            </tr>`;
+        }).join('');
+      }
+      // Keep prices fresh while the patient is looking (pharmacies quote over the next minutes)
+      if (!rxPoll) {
+        $('rx-live').textContent = '● live';
+        rxPoll = setInterval(() => {
+          if ($('rx').classList.contains('hidden') || !rxCurrent) return stopPolling();
+          loadOptions(rxRadius, { silent: true }).catch(() => {});
+        }, 20000);
+      }
+    }
+    $('rx-radius').addEventListener('click', e => { if (e.target.dataset.radius) loadOptions(null, { share: { radius: Number(e.target.dataset.radius) } }); });
+    $('rx-share').addEventListener('click', e => {
+      const kind = e.target.dataset.share;
+      if (kind) loadOptions(null, { share: kind === 'home' ? { use_home: true } : {} });
+    });
+    document.querySelectorAll('.sort-btn').forEach(b => b.addEventListener('click', () => { rxSort = b.dataset.sort; loadOptions(rxRadius); }));
+    $('rx-highlights').addEventListener('click', e => {
+      const card = e.target.closest('[data-pick]');
+      if (!card) return;
+      const n = rxOptions.findIndex(o => String(o.pharmacy.id) === card.dataset.pick);
+      const btn = $('rx-options').querySelector(`button[data-order="${n}"]`);
+      if (btn) btn.click();
+    });
+
+    $('rx-options').addEventListener('click', e => {
+      const b = e.target.closest('button[data-order]');
+      if (!b) return;
+      ordering = rxOptions[Number(b.dataset.order)];
+      const o = ordering;
+      $('o-store').textContent = `${o.pharmacy.store_name} (${P.km(o.pharmacy.distance_km)})`;
+      $('o-lines').innerHTML = `<div class="overflow-x-auto"><table class="data-table w-full"><thead><tr><th class="px-2 py-1">Sr No</th><th class="px-2 py-1">Medicine</th><th class="px-2 py-1">Quantity</th><th class="px-2 py-1">Unit price</th><th class="px-2 py-1">Amount</th></tr></thead><tbody>`
+        + o.best.lines.map((l, n) => `<tr class="${l.available ? '' : 'text-slate-400'}"><td class="num px-2 py-1">${n + 1}</td>
+            <td class="txt px-2 py-1">${escapeHtml(l.name)}${l.substitute ? ' <span class="text-xs text-sky-700">(generic substitute)</span>' : ''}${l.available ? '' : ' — not available here'}</td>
+            <td class="num px-2 py-1">${P.num(l.quantity)}</td><td class="num px-2 py-1">${l.available ? P.money(l.unit_price_paise) : '—'}</td>
+            <td class="num px-2 py-1">${l.available ? P.money(l.line_paise) : '—'}</td></tr>`).join('') + '</tbody></table></div>'
+        + (o.best.complete ? '' : '<p class="text-xs text-amber-700 mt-1">Unavailable medicines stay on your prescription so you can order them from another pharmacy.</p>');
+      $('o-delivery-opt').classList.toggle('hidden', !o.delivery_available);
+      $('o-fee').textContent = o.delivery_available ? `(+${P.money(o.delivery_fee_paise)}, about ${o.delivery_minutes} min)` : '';
+      $('o-online-opt').classList.toggle('hidden', !o.pharmacy.accepts_online_payment);
+      document.querySelector('#order-form input[name=fulfilment][value=pickup]').checked = true;
+      document.querySelector('#order-form input[name=pay][value=pharmacy]').checked = true;
+      $('o-address').value = (me.home && me.home.address) || '';
+      updateOrderTotal();
+      $('order-form').classList.remove('hidden');
+      $('order-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    function updateOrderTotal() {
+      const delivery = document.querySelector('#order-form input[name=fulfilment]:checked').value === 'delivery';
+      $('o-address-wrap').classList.toggle('hidden', !delivery);
+      $('o-total').textContent = P.money(ordering.best.subtotal_paise + (delivery ? ordering.delivery_fee_paise : 0));
+    }
+    $('order-form').addEventListener('change', updateOrderTotal);
+    $('o-cancel').addEventListener('click', () => $('order-form').classList.add('hidden'));
+    $('order-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const fulfilment = document.querySelector('#order-form input[name=fulfilment]:checked').value;
+      const pay = document.querySelector('#order-form input[name=pay]:checked').value;
+      try {
+        const res = await api(`/api/prescriptions/${rxCurrent.id}/orders`, { method: 'POST', body: {
+          pharmacy_id: ordering.pharmacy.id, fulfilment, payment_method: pay,
+          delivery_address: fulfilment === 'delivery' ? $('o-address').value.trim() || null : null } });
+        if (res.payment) {
+          try {
+            const r = await P.payOnline(res.order.id, res.payment, 'orders');
+            P.toast(r.outcome === 'placed' ? 'Paid. Your order has been sent to the pharmacy. A chat with them is in Chats.' : 'Order was cancelled meanwhile; refund issued.', 'success');
+          } catch (err) { P.toast(err.message, 'error'); }
+        } else {
+          P.toast('Order placed. The pharmacy has been notified.', 'success');
+          if (window.PyshioChat) PyshioChat.open(res.chat_id);
+        }
+        await openRx(rxCurrent.id, rxRadius);
+      } catch (err) { P.setMessage($('rx-msg'), err.message, 'error'); }
+    });
+
+    // ---------- Orders ----------
+    async function loadOrders() {
+      const list = await api('/api/my/orders');
+      $('order-list').innerHTML = list.length ? list.map(o => `
+        <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div><p class="font-semibold">${escapeHtml(o.store_name)} <span class="text-xs text-slate-500 font-normal">${escapeHtml(o.reference)} · ${P.km(o.distance_km)}</span></p>
+              <p class="text-xs text-slate-500">${escapeHtml(new Date(o.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))} · ${o.fulfilment === 'delivery' ? 'Home delivery' : 'Pickup'} · Rx ${escapeHtml(o.rx_reference)}</p></div>
+            ${P.orderBadge(o.status)}
+          </div>
+          <p class="text-sm text-slate-700">${o.items.map(i => `${escapeHtml(i.name)} × ${i.quantity}`).join(', ')}</p>
+          ${o.status_reason ? `<p class="text-xs text-red-700">${escapeHtml(o.status_reason)}</p>` : ''}
+          ${o.delivery_otp ? `<p class="text-sm rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">Handover code: <strong class="font-mono text-lg tracking-widest">${escapeHtml(o.delivery_otp)}</strong>
+            <span class="block text-xs text-slate-500">Give this to the pharmacy only when you receive your medicines.</span></p>` : ''}
+          ${o.status === 'completed' || o.payment_status === 'paid' ? `<div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <a href="/invoice?type=order&id=${encodeURIComponent(o.id)}" target="_blank" class="text-sky-700 hover:underline">View invoice ↗</a>
+            ${o.status === 'completed' ? rateHtml('order', o.id, o.my_rating) : ''}</div>` : ''}
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-sm"><strong>${P.money(o.total_paise)}</strong> · ${o.payment_status === 'paid' ? 'Paid' : o.payment_status === 'refunded' ? 'Refunded' : o.payment_method === 'online' ? 'Payment pending' : 'Pay at pharmacy'}
+              · <a href="tel:${escapeHtml(o.pharmacy_phone || '')}" class="text-sky-700">${escapeHtml(o.pharmacy_phone || '')}</a></p>
+            <div class="flex gap-2">
+              ${o.status === 'pending_payment' ? `<button data-pay="${o.id}" class="px-3 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded-lg">Pay now</button>` : ''}
+              ${['pending_payment', 'placed', 'accepted'].includes(o.status) ? `<button data-cancel="${o.id}" class="px-3 py-1.5 border border-red-300 text-red-700 text-xs font-semibold rounded-lg">Cancel</button>` : ''}
+            </div>
+          </div>
+        </div>`).join('') : '<div class="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">No medicine orders yet.</div>';
+    }
+    $('order-list').addEventListener('click', async e => {
+      const pay = e.target.dataset.pay, cancel = e.target.dataset.cancel;
+      try {
+        if (pay) {
+          const r = await P.payOnline(pay, await api(`/api/orders/${pay}/payment`), 'orders');
+          P.toast(r.outcome === 'placed' ? 'Paid. Order sent to the pharmacy.' : 'Refund issued.', 'success');
+        }
+        if (cancel) {
+          if (!confirm('Cancel this order?')) return;
+          const r = await api(`/api/orders/${cancel}/cancel`, { method: 'POST', body: {} });
+          P.toast(r.refund_note || 'Order cancelled.', 'success');
+        }
+        loadOrders();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- History ----------
+    let historyData = null;  // not `history`: that would hide window.history
+    const KIND = { visit: ['Visit', 'bg-sky-100 text-sky-800'], prescription: ['Prescription', 'bg-violet-100 text-violet-800'],
+      order: ['Medicine order', 'bg-emerald-100 text-emerald-800'], refund: ['Refund', 'bg-amber-100 text-amber-800'] };
+    const COURSE = { active: ['Active', 'bg-sky-100 text-sky-800'], ending: ['Running out soon', 'bg-amber-100 text-amber-800'],
+      overdue: ['Ran out: refill?', 'bg-red-100 text-red-700'], refilled: ['Refilled', 'bg-emerald-100 text-emerald-800'],
+      completed: ['Course finished', 'bg-slate-200 text-slate-600'], open: ['As needed', 'bg-slate-100 text-slate-600'] };
+    const pill = ([label, cls]) => `<span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cls}">${escapeHtml(label)}</span>`;
+
+    async function loadHistory() {
+      const [h, doctors, courses] = await Promise.all([api('/api/my/history'), api('/api/my/doctors'), api('/api/my/courses')]);
+      historyData = h;
+      const t = h.totals;
+      const card = (label, value, sub) => `<div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-xs text-slate-500">${label}</p>
+        <p class="text-xl font-bold text-slate-900 text-right tabular-nums">${value}</p>${sub ? `<p class="text-xs text-slate-500 text-right">${sub}</p>` : ''}</div>`;
+      $('h-totals').innerHTML = card('Doctor visits', P.num(t.visits), `${P.num(t.doctors)} doctor(s)`)
+        + card('Prescriptions', P.num(t.prescriptions), '')
+        + card('Medicine orders', P.num(t.orders), `${P.num(t.pharmacies)} pharmacy(ies)`)
+        + card('Total spent', P.money(t.net_paise), `Consultations ${P.money(t.consultations_paise)} · Medicines ${P.money(t.medicines_paise)}`
+          + (t.refunds_paise ? ` · Refunds ${P.money(t.refunds_paise)}` : ''));
+      $('h-doctors').innerHTML = doctors.length ? doctors.map(d => `
+        <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-2">
+          <div><p class="font-semibold text-slate-900">${escapeHtml(d.name)}</p>
+            <p class="text-xs text-slate-500">${escapeHtml(d.category_label)} · ${escapeHtml(d.clinic_name)}, ${escapeHtml(d.city)}</p></div>
+          <p class="text-sm text-slate-700">${d.visits ? `Visited ${d.visits} time${d.visits > 1 ? 's' : ''} · last on ${escapeHtml(P.prettyDate(d.last_visit))}` : 'No visits yet'}</p>
+          ${d.next_appointment ? `<p class="text-sm text-sky-700">Next: ${escapeHtml(P.prettyDate(d.next_appointment))}</p>` : ''}
+          ${d.prescriptions ? `<p class="text-xs text-slate-500">${d.prescriptions} prescription(s)</p>` : ''}
+          ${d.bookable ? `<a href="/doctors/${encodeURIComponent(d.slug)}" class="mt-auto text-center px-3 py-2 bg-sky-600 text-white text-sm font-semibold rounded-lg hover:bg-sky-700">${d.visits ? 'Book again' : 'View profile'}</a>`
+            : '<p class="mt-auto text-xs text-slate-500">No longer taking bookings on Pyshio</p>'}
+        </div>`).join('')
+        : '<div class="sm:col-span-3 bg-white rounded-xl border border-dashed border-slate-300 p-6 text-center text-slate-500">No doctors yet. <a href="/" class="text-sky-700 hover:underline">Find one nearby</a></div>';
+      $('h-courses').innerHTML = P.table([
+        { label: 'Medicine', render: c => `<p class="font-medium">${escapeHtml(c.name)}${c.is_long_term ? ' <span class="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Long-term</span>' : ''}</p><p class="text-xs text-slate-500">${escapeHtml([c.generic_name, c.strength].filter(Boolean).join(' · '))}</p>` },
+        { label: 'Pharmacy', key: 'store_name' },
+        { label: 'Quantity', key: 'units', num: true },
+        { label: 'Started', render: c => escapeHtml(P.prettyDate(c.started_on)) },
+        { label: 'Runs out', render: c => c.ends_on ? escapeHtml(P.prettyDate(c.ends_on)) : '—' },
+        { label: 'Status', render: c => pill(COURSE[c.status] || [c.status, 'bg-slate-100']) + (c.status === 'overdue' || c.status === 'ending'
+            ? (c.refills_left ? ` <button type="button" data-open-rx="${c.prescription_id}" class="text-xs text-emerald-700 font-semibold hover:underline">Refill</button>` : ' <a href="/" class="text-xs text-sky-700 hover:underline">See a doctor</a>') : '') },
+      ], courses.slice().reverse(), { empty: 'Medicines you collect or get delivered through Pyshio appear here.' });
+      const years = [...new Set(h.events.map(e => e.date.slice(0, 4)))];
+      const yearSel = $('h-year'), chosen = yearSel.value;
+      yearSel.innerHTML = '<option value="">All years</option>' + years.map(y => `<option ${y === chosen ? 'selected' : ''}>${y}</option>`).join('');
+      renderEvents();
+    }
+    function renderEvents() {
+      if (!historyData) return;
+      const type = $('h-type').value, year = $('h-year').value;
+      const rows = historyData.events.filter(e => (!type || e.kind === type) && (!year || e.date.startsWith(year)));
+      $('h-events').innerHTML = P.table([
+        { label: 'Date', render: e => `<span class="whitespace-nowrap">${escapeHtml(P.prettyDate(e.date.slice(0, 10)))}</span>` },
+        { label: 'Type', render: e => pill(KIND[e.kind]) + (e.revisit ? ` <span class="text-xs text-sky-700">Revisit #${e.visit_number}</span>` : e.visit_number === 1 ? ' <span class="text-xs text-slate-500">First visit</span>' : '') },
+        { label: 'Details', render: e => `<p>${escapeHtml(e.title)}</p><p class="text-xs text-slate-500">${escapeHtml(e.reference)}</p>` },
+        { label: 'Doctor / Pharmacy', render: e => e.link ? `<a href="${escapeHtml(e.link)}" class="text-sky-700 hover:underline">${escapeHtml(e.party)}</a>` : escapeHtml(e.party) },
+        { label: 'Amount', num: true, render: e => e.amount_paise == null ? '—' : `<span class="${e.amount_paise < 0 ? 'text-emerald-700' : ''}">${e.amount_paise < 0 ? '−' : ''}${P.money(Math.abs(e.amount_paise))}</span>` },
+        { label: 'Status', render: e => e.kind === 'order' ? P.orderBadge(e.status) : e.kind === 'visit' ? P.badge(e.status)
+            : `<span class="text-xs text-slate-600">${escapeHtml(e.status)}</span>` },
+        { label: '', render: e => e.receipt ? `<a href="${escapeHtml(e.receipt)}" target="_blank" class="text-xs text-sky-700 hover:underline whitespace-nowrap">${e.kind === 'prescription' ? 'View' : 'Receipt'} ↗</a>` : '' },
+      ], rows, { empty: 'Nothing here yet.' });
+    }
+    $('h-type').addEventListener('change', renderEvents);
+    $('h-year').addEventListener('change', renderEvents);
+    $('h-courses').addEventListener('click', e => { const b = e.target.closest('[data-open-rx]'); if (b) openRx(b.dataset.openRx).catch(err => P.toast(err.message, 'error')); });
+
+    // ---------- Profile ----------
+    async function initProfile() {
+      if (homePicker) return;
+      const home = me.home || {};
+      const f = $('home-form').elements;
+      f.address.value = home.address || '';
+      f.city.value = home.city || '';
+      f.state.innerHTML = P.stateOptions(config.states, home.state);
+      f.city.addEventListener('input', () => { f.city.dataset.touched = '1'; });
+      f.state.addEventListener('change', () => { f.state.dataset.touched = '1'; });
+      homePicker = await P.locationPicker($('home-picker'), home, point => P.fillCityState(point, f.city, f.state));
+    }
+    $('home-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const point = homePicker && homePicker.value();
+      if (!point) { P.toast('Pick your home on the map first', 'error'); return; }
+      try {
+        const saved = await api('/api/my/location', { method: 'PUT', body: { lat: point.lat, lng: point.lng,
+          address: e.target.elements.address.value.trim() || point.label || null,
+          city: e.target.elements.city.value.trim() || null, state: e.target.elements.state.value || null } });
+        me.home = saved;
+        $('home-banner').classList.add('hidden');
+        P.toast(`Home location saved. Doctors and pharmacies within ${config.radius_km} km will now be matched to you.`, 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('profile-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = Object.fromEntries(new FormData(e.target));
+      body.dob = body.dob || null; body.sex = body.sex || null;
+      try {
+        const res = await api('/api/auth/me', { method: 'PATCH', body });
+        me = { ...me, ...res };
+        P.me(true).then(P.renderNav);  // refresh the name shown in the nav
+        P.toast('Saved', 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('consent-toggle').addEventListener('change', async e => {
+      try {
+        await api('/api/my/consent', { method: 'PUT', body: { share: e.target.checked } });
+        P.toast(e.target.checked ? 'Prescriptions will be sent to nearby pharmacies automatically' : 'Automatic sharing turned off', 'success');
+      } catch (err) { e.target.checked = !e.target.checked; P.toast(err.message, 'error'); }
+    });
+    $('logout-all').addEventListener('click', async () => {
+      try { P.toast((await api('/api/auth/logout-all', { method: 'POST' })).message, 'success'); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('export-data').addEventListener('click', async () => {
+      try {
+        const res = await api('/api/my/data', { raw: true });
+        const url = URL.createObjectURL(await res.blob());
+        Object.assign(document.createElement('a'), { href: url, download: 'my-pyshio-data.json' }).click();
+        URL.revokeObjectURL(url);
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('delete-account').addEventListener('click', async () => {
+      if (!confirm('Close your account? Upcoming appointments and open orders will be cancelled (online payments refunded) and your personal details removed. This cannot be undone.')) return;
+      const password = prompt('Enter your password to confirm:');
+      if (!password) return;
+      try { await api('/api/my/delete', { method: 'POST', body: { password } }); location.href = '/'; }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('password-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      try { await api('/api/auth/change-password', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); e.target.reset(); P.toast('Password changed', 'success'); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // Every loader shows an inline error with Retry instead of leaving a blank panel
+    loadAppointments = P.guard(loadAppointments, 'appt-list');
+    loadPrescriptions = P.guard(loadPrescriptions, 'rx-list');
+    loadOrders = P.guard(loadOrders, 'order-list');
+    loadHistory = P.guard(loadHistory, 'h-events');
+    loadLabBookings = P.guard(loadLabBookings, 'lab-list');
+    loadUploads = P.guard(loadUploads, 'up-list');
+    loadRecords = P.guard(loadRecords, 'rec-list');
+    loadLabOptions = P.guard(loadLabOptions, 'lab-opts');
+    initProfile = P.guard(initProfile, 'home-picker');
+    loadOptions = P.guard(loadOptions, 'rx-options');
+
+    (async () => {
+      me = await P.requireRole('patient');
+      config = await api('/api/config');
+      $('profile-form').elements.name.value = me.user.name;
+      $('profile-form').elements.phone.value = me.user.phone || '';
+      $('profile-form').elements.dob.value = me.user.dob || '';
+      $('profile-form').elements.sex.value = me.user.sex || '';
+      $('consent-toggle').checked = !!me.user.share_consent;
+      $('p-email').textContent = me.user.email;
+      $('home-banner').classList.toggle('hidden', !!(me.home && me.home.lat != null));
+      const TABS = ['today', 'appointments', 'uploads', 'prescriptions', 'orders', 'labs', 'records', 'history', 'profile'];
+      const fromHash = () => { const tab = location.hash.slice(1); return TABS.includes(tab) ? tab : 'today'; };
+      showTab(fromHash());
+      // Links like /account#orders (e.g. from emails) while already on this page
+      window.addEventListener('hashchange', () => showTab(fromHash()));
+    })().catch(P.fatal);
+  </script>
+</body>
+</html>

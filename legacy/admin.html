@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pyshio Admin | Appointments</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 800: '#075985' },
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    .appt-table th { text-align: center; font-weight: 700; }
+    .appt-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .appt-table td.txt { text-align: left; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+
+  <!-- Login -->
+  <div id="login-view" class="hidden min-h-screen flex items-center justify-center px-4">
+    <form id="login-form" class="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-4">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-9 h-9 rounded-lg bg-primary-600 flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+        </div>
+        <span class="text-xl font-bold text-primary-800">Pyshio Admin</span>
+      </div>
+      <label class="block text-sm font-medium text-slate-700">Password
+        <input id="login-password" type="password" required autofocus class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none" />
+      </label>
+      <button class="w-full py-2.5 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700">Sign in</button>
+      <p id="login-error" class="text-sm text-red-600 hidden"></p>
+    </form>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="app-view" class="hidden">
+    <nav class="bg-white shadow-sm sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-lg bg-primary-600 flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          </div>
+          <span class="text-xl font-bold text-primary-800">Pyshio Admin</span>
+        </div>
+        <div class="flex items-center gap-4 text-sm">
+          <a href="/" target="_blank" class="text-slate-600 hover:text-primary-600">Open booking site</a>
+          <button id="logout-btn" class="px-3 py-1.5 border border-slate-300 rounded-lg hover:bg-slate-100">Sign out</button>
+        </div>
+      </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <!-- Stats -->
+      <section id="stats" class="grid grid-cols-2 lg:grid-cols-5 gap-4"></section>
+
+      <!-- Appointments -->
+      <section class="bg-white rounded-2xl shadow border border-slate-200">
+        <div class="p-5 border-b border-slate-200 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold text-slate-900">Appointments</h2>
+            <div class="flex flex-wrap gap-2 text-sm">
+              <button data-range="today" class="range-btn px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Today</button>
+              <button data-range="tomorrow" class="range-btn px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Tomorrow</button>
+              <button data-range="week" class="range-btn px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Next 7 days</button>
+              <button data-range="upcoming" class="range-btn px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">All upcoming</button>
+              <button data-range="all" class="range-btn px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">All</button>
+              <button id="export-btn" class="px-3 py-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-900">Export CSV</button>
+            </div>
+          </div>
+          <form id="filter-form" class="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
+            <label class="text-slate-600">From<input id="f-from" type="date" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg" /></label>
+            <label class="text-slate-600">To<input id="f-to" type="date" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg" /></label>
+            <label class="text-slate-600">Status<select id="f-status" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg"><option value="">All</option></select></label>
+            <label class="text-slate-600">Practitioner<select id="f-practitioner" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg"><option value="">All</option></select></label>
+            <label class="text-slate-600 col-span-2">Search<input id="f-q" placeholder="Name, email, phone or reference" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg" /></label>
+          </form>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="appt-table w-full text-sm">
+            <thead class="bg-slate-50 text-slate-700">
+              <tr>
+                <th class="px-3 py-3">Sr No</th>
+                <th class="px-3 py-3">Date</th>
+                <th class="px-3 py-3">Time</th>
+                <th class="px-3 py-3">Patient</th>
+                <th class="px-3 py-3">Service</th>
+                <th class="px-3 py-3">Practitioner</th>
+                <th class="px-3 py-3">Status</th>
+                <th class="px-3 py-3">Reference</th>
+                <th class="px-3 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="appt-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <p id="appt-count" class="px-5 py-3 text-xs text-slate-500 border-t border-slate-200"></p>
+      </section>
+
+      <!-- Blocked time -->
+      <section class="bg-white rounded-2xl shadow border border-slate-200 p-5 space-y-4">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">Time off &amp; closures</h2>
+          <p class="text-sm text-slate-500">Blocked times are removed from online booking. Existing appointments are not cancelled — you'll see a list to reschedule.</p>
+        </div>
+        <form id="block-form" class="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm items-end">
+          <label class="text-slate-600">Date<input id="b-date" type="date" required class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">From (blank = all day)<input id="b-start" type="time" step="1800" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">To<input id="b-end" type="time" step="1800" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg" /></label>
+          <label class="text-slate-600">Who<select id="b-practitioner" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg"><option value="">Whole clinic</option></select></label>
+          <label class="text-slate-600">Reason<input id="b-reason" placeholder="Holiday, leave…" class="mt-1 w-full px-2 py-2 border border-slate-300 rounded-lg" /></label>
+          <button class="py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700">Block time</button>
+        </form>
+        <p id="block-message" class="text-sm hidden"></p>
+        <ul id="block-list" class="divide-y divide-slate-100 text-sm"></ul>
+      </section>
+    </main>
+  </div>
+
+  <!-- Edit modal -->
+  <div id="edit-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <form id="edit-form" class="w-full max-w-lg bg-white rounded-2xl shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-slate-900">Edit appointment <span id="e-ref" class="text-slate-500 font-normal"></span></h3>
+        <button type="button" data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button>
+      </div>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="col-span-2 text-slate-600">Patient name<input id="e-name" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">Email<input id="e-email" type="email" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">Phone<input id="e-phone" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">Service<select id="e-service" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></select></label>
+        <label class="text-slate-600">Practitioner<select id="e-practitioner" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></select></label>
+        <label class="text-slate-600">Date<input id="e-date" type="date" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">Time<select id="e-time" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></select></label>
+        <label class="col-span-2 text-slate-600">Status<select id="e-status" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></select></label>
+        <p class="col-span-2 text-slate-600">Reason given by patient: <span id="e-reason" class="text-slate-800"></span></p>
+        <label class="col-span-2 text-slate-600">Clinical / admin notes<textarea id="e-notes" rows="3" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea></label>
+      </div>
+      <p id="edit-error" class="text-sm text-red-600 hidden"></p>
+      <div class="flex justify-end gap-2">
+        <button type="button" data-close class="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-100">Close</button>
+        <button class="px-4 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700">Save changes</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const STATUS_LABELS = { confirmed: 'Confirmed', completed: 'Completed', no_show: 'No-show', cancelled: 'Cancelled' };
+    const STATUS_STYLES = {
+      confirmed: 'bg-primary-100 text-primary-800',
+      completed: 'bg-emerald-100 text-emerald-800',
+      no_show: 'bg-amber-100 text-amber-800',
+      cancelled: 'bg-slate-200 text-slate-600',
+    };
+    const $ = id => document.getElementById(id);
+    let config = null;
+    let appointments = [];
+    let editing = null;
+
+    function getToken() { try { return sessionStorage.getItem('pyshio-admin-token'); } catch { return null; } }
+    function setToken(t) { try { t ? sessionStorage.setItem('pyshio-admin-token', t) : sessionStorage.removeItem('pyshio-admin-token'); } catch {} }
+
+    function escapeHtml(v) {
+      return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function isoDate(d) {
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+    function addDays(n) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + n); return isoDate(d); }
+    function prettyDate(str) {
+      const [y, m, d] = str.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    async function api(url, options = {}) {
+      const res = await fetch(url, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}`, ...(options.headers || {}) },
+      });
+      if (res.status === 401 && !url.endsWith('/login')) { showLogin(); throw new Error('Session expired. Please sign in again.'); }
+      if (options.raw) { if (!res.ok) throw new Error('Request failed'); return res; }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Request failed');
+      return data;
+    }
+
+    function showLogin() {
+      setToken(null);
+      $('app-view').classList.add('hidden');
+      $('login-view').classList.remove('hidden');
+    }
+
+    async function showApp() {
+      $('login-view').classList.add('hidden');
+      $('app-view').classList.remove('hidden');
+      if (!config) {
+        config = await api('/api/config');
+        const statusOpts = config.statuses.map(s => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
+        const pracOpts = config.practitioners.map(p => `<option value="${p.key}">${escapeHtml(p.name)}</option>`).join('');
+        $('f-status').insertAdjacentHTML('beforeend', statusOpts);
+        $('e-status').innerHTML = statusOpts;
+        $('f-practitioner').insertAdjacentHTML('beforeend', pracOpts);
+        $('b-practitioner').insertAdjacentHTML('beforeend', pracOpts);
+        $('e-practitioner').innerHTML = pracOpts;
+        $('e-service').innerHTML = config.services.map(s => `<option value="${s.key}">${escapeHtml(s.name)} (${s.duration} min)</option>`).join('');
+      }
+      setRange('today');
+      loadStats();
+      loadBlocks();
+    }
+
+    // ---------- Stats ----------
+    async function loadStats() {
+      const s = await api('/api/admin/stats');
+      const m = s.month_to_date;
+      const fmt = n => Number(n).toLocaleString('en-IN');
+      const card = (label, value, sub = '') => `
+        <div class="bg-white rounded-xl border border-slate-200 p-4">
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">${label}</p>
+          <p class="text-2xl font-bold text-slate-900 mt-1 text-right tabular-nums">${fmt(value)}</p>
+          ${sub ? `<p class="text-xs text-slate-500 mt-1">${sub}</p>` : ''}
+        </div>`;
+      const byPrac = Object.entries(s.today_by_practitioner).map(([n, c]) => `${escapeHtml(n.split(',')[0])}: ${c}`).join(' · ');
+      $('stats').innerHTML =
+        card('Today', s.today, byPrac || 'No appointments') +
+        card('Next 7 days', s.upcoming_7_days, 'Confirmed') +
+        card('Completed', m.completed, 'This month') +
+        card('No-shows', m.no_show, 'This month') +
+        card('Cancelled', m.cancelled, 'This month');
+    }
+
+    // ---------- Appointments ----------
+    function setRange(range) {
+      const ranges = {
+        today: [addDays(0), addDays(0)],
+        tomorrow: [addDays(1), addDays(1)],
+        week: [addDays(0), addDays(7)],
+        upcoming: [addDays(0), ''],
+        all: ['', ''],
+      };
+      [$('f-from').value, $('f-to').value] = ranges[range];
+      document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('bg-primary-50', b.dataset.range === range));
+      loadAppointments();
+    }
+
+    function filterParams() {
+      const params = new URLSearchParams();
+      const map = { date_from: 'f-from', date_to: 'f-to', status: 'f-status', practitioner: 'f-practitioner', q: 'f-q' };
+      for (const [key, id] of Object.entries(map)) if ($(id).value.trim()) params.set(key, $(id).value.trim());
+      return params;
+    }
+
+    async function loadAppointments() {
+      try {
+        appointments = await api(`/api/appointments?${filterParams()}`);
+        renderAppointments();
+      } catch (err) {
+        $('appt-body').innerHTML = `<tr><td colspan="9" class="px-3 py-6 text-center text-red-600">${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    function renderAppointments() {
+      if (!appointments.length) {
+        $('appt-body').innerHTML = '<tr><td colspan="9" class="px-3 py-8 text-center text-slate-500">No appointments match these filters.</td></tr>';
+        $('appt-count').textContent = '';
+        return;
+      }
+      const now = new Date();
+      $('appt-body').innerHTML = appointments.map((a, i) => {
+        const isPast = new Date(`${a.appointment_date}T${a.appointment_time}`) < now;
+        const actions = a.status === 'confirmed' ? `
+          <button data-act="completed" data-id="${a.id}" class="text-emerald-700 hover:underline">Done</button>
+          <button data-act="no_show" data-id="${a.id}" class="text-amber-700 hover:underline">No-show</button>
+          ${isPast ? '' : `<button data-act="cancel" data-id="${a.id}" class="text-red-700 hover:underline">Cancel</button>`}` : '';
+        return `
+          <tr class="hover:bg-slate-50 ${a.status === 'cancelled' ? 'opacity-60' : ''}">
+            <td class="num px-3 py-3 text-slate-500">${(i + 1).toLocaleString('en-IN')}</td>
+            <td class="txt px-3 py-3 whitespace-nowrap">${escapeHtml(prettyDate(a.appointment_date))}</td>
+            <td class="txt px-3 py-3 whitespace-nowrap">${escapeHtml(a.appointment_time)} <span class="text-slate-400">· ${a.duration}m</span></td>
+            <td class="txt px-3 py-3">
+              <p class="font-medium text-slate-900">${escapeHtml(a.patient_name)}</p>
+              <p class="text-xs text-slate-500">${escapeHtml(a.phone)} · ${escapeHtml(a.email)}</p>
+              ${a.reason ? `<p class="text-xs text-slate-500 italic">“${escapeHtml(a.reason)}”</p>` : ''}
+              ${a.notes ? `<p class="text-xs text-primary-700">Note: ${escapeHtml(a.notes)}</p>` : ''}
+            </td>
+            <td class="txt px-3 py-3">${escapeHtml(a.service_name)}</td>
+            <td class="txt px-3 py-3 whitespace-nowrap">${escapeHtml(a.practitioner_name)}</td>
+            <td class="txt px-3 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[a.status] || ''}">${STATUS_LABELS[a.status] || escapeHtml(a.status)}</span></td>
+            <td class="txt px-3 py-3 font-mono text-xs">${escapeHtml(a.reference)}</td>
+            <td class="txt px-3 py-3 whitespace-nowrap space-x-2">
+              <button data-act="edit" data-id="${a.id}" class="text-primary-700 hover:underline">Edit</button>${actions}
+            </td>
+          </tr>`;
+      }).join('');
+      const active = appointments.filter(a => a.status !== 'cancelled').length;
+      $('appt-count').textContent = `${appointments.length.toLocaleString('en-IN')} appointment(s), ${active.toLocaleString('en-IN')} active`;
+    }
+
+    $('appt-body').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      const appt = appointments.find(a => a.id === btn.dataset.id);
+      const act = btn.dataset.act;
+      if (act === 'edit') return openEdit(appt);
+      if (act === 'cancel' && !confirm(`Cancel ${appt.patient_name}'s appointment?`)) return;
+      try {
+        await api(`/api/appointments/${appt.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: act === 'cancel' ? 'cancelled' : act }),
+        });
+        loadAppointments();
+        loadStats();
+      } catch (err) { alert(err.message); }
+    });
+
+    // ---------- Edit modal ----------
+    async function loadEditTimes() {
+      const select = $('e-time');
+      const keep = select.value || editing.appointment_time;
+      const params = new URLSearchParams({
+        date: $('e-date').value, service: $('e-service').value,
+        practitioner: $('e-practitioner').value, exclude: editing.id,
+      });
+      let slots = [];
+      try { slots = (await api(`/api/slots?${params}`)).slots; } catch {}
+      const sameAsSaved = $('e-date').value === editing.appointment_date && $('e-service').value === editing.service
+        && $('e-practitioner').value === editing.practitioner;
+      if (sameAsSaved && !slots.includes(editing.appointment_time)) slots = [editing.appointment_time, ...slots].sort();
+      select.innerHTML = slots.length ? slots.map(t => `<option ${t === keep ? 'selected' : ''}>${t}</option>`).join('')
+        : '<option value="">No free times</option>';
+    }
+
+    function openEdit(a) {
+      editing = a;
+      $('e-ref').textContent = a.reference;
+      $('e-name').value = a.patient_name;
+      $('e-email').value = a.email;
+      $('e-phone').value = a.phone;
+      $('e-service').value = a.service;
+      $('e-practitioner').value = a.practitioner;
+      $('e-date').value = a.appointment_date;
+      $('e-status').value = a.status;
+      $('e-reason').textContent = a.reason || '—';
+      $('e-notes').value = a.notes || '';
+      $('e-time').innerHTML = `<option>${escapeHtml(a.appointment_time)}</option>`;
+      $('edit-error').classList.add('hidden');
+      $('edit-modal').classList.remove('hidden');
+      loadEditTimes();
+    }
+
+    ['e-date', 'e-service', 'e-practitioner'].forEach(id => $(id).addEventListener('change', loadEditTimes));
+    document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => $('edit-modal').classList.add('hidden')));
+
+    $('edit-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fields = {
+        patient_name: $('e-name').value, email: $('e-email').value, phone: $('e-phone').value,
+        service: $('e-service').value, practitioner: $('e-practitioner').value,
+        appointment_date: $('e-date').value, appointment_time: $('e-time').value,
+        status: $('e-status').value, notes: $('e-notes').value,
+      };
+      // Only send what changed so untouched past appointments aren't re-validated
+      const body = {};
+      for (const [k, v] of Object.entries(fields)) if (v !== (editing[k] ?? '')) body[k] = v;
+      try {
+        if (Object.keys(body).length) {
+          await api(`/api/appointments/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+        }
+        $('edit-modal').classList.add('hidden');
+        loadAppointments();
+        loadStats();
+      } catch (err) {
+        $('edit-error').textContent = err.message;
+        $('edit-error').classList.remove('hidden');
+      }
+    });
+
+    // ---------- Blocks ----------
+    async function loadBlocks() {
+      const blocks = await api('/api/admin/blocks');
+      $('block-list').innerHTML = blocks.length ? blocks.map(b => `
+        <li class="py-2 flex items-center justify-between gap-3">
+          <span><strong>${escapeHtml(prettyDate(b.block_date))}</strong>
+            · ${b.start_time ? `${escapeHtml(b.start_time)}–${escapeHtml(b.end_time)}` : 'All day'}
+            · ${escapeHtml(b.practitioner_name)}${b.reason ? ` · <span class="text-slate-500">${escapeHtml(b.reason)}</span>` : ''}</span>
+          <button data-block="${b.id}" class="text-red-700 hover:underline">Remove</button>
+        </li>`).join('') : '<li class="py-2 text-slate-500">No upcoming blocked time.</li>';
+    }
+
+    $('block-list').addEventListener('click', async (e) => {
+      const id = e.target.dataset.block;
+      if (!id) return;
+      await api(`/api/admin/blocks/${id}`, { method: 'DELETE' });
+      loadBlocks();
+    });
+
+    $('block-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = $('block-message');
+      try {
+        const res = await api('/api/admin/blocks', {
+          method: 'POST',
+          body: JSON.stringify({
+            block_date: $('b-date').value, start_time: $('b-start').value || null, end_time: $('b-end').value || null,
+            practitioner: $('b-practitioner').value || null, reason: $('b-reason').value || null,
+          }),
+        });
+        msg.className = 'text-sm ' + (res.conflicts.length ? 'text-amber-700' : 'text-emerald-700');
+        msg.innerHTML = res.conflicts.length
+          ? `Blocked. ${res.conflicts.length} existing appointment(s) fall in this time and need rescheduling: ` +
+            res.conflicts.map(c => `${escapeHtml(c.appointment_time)} ${escapeHtml(c.patient_name)} (${escapeHtml(c.reference)})`).join(', ')
+          : 'Time blocked.';
+        e.target.reset();
+        loadBlocks();
+      } catch (err) {
+        msg.className = 'text-sm text-red-600';
+        msg.textContent = err.message;
+      }
+    });
+
+    // ---------- Filters, export, auth ----------
+    document.querySelectorAll('.range-btn').forEach(b => b.addEventListener('click', () => setRange(b.dataset.range)));
+    let searchTimer;
+    $('filter-form').addEventListener('input', () => {
+      document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('bg-primary-50'));
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(loadAppointments, 250);
+    });
+    $('filter-form').addEventListener('submit', e => e.preventDefault());
+
+    $('export-btn').addEventListener('click', async () => {
+      try {
+        const res = await api(`/api/admin/export.csv?${filterParams()}`, { raw: true });
+        const url = URL.createObjectURL(await res.blob());
+        const link = Object.assign(document.createElement('a'), { href: url, download: `pyshio-appointments-${addDays(0)}.csv` });
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (err) { alert(err.message); }
+    });
+
+    $('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const { token } = await api('/api/admin/login', {
+          method: 'POST', body: JSON.stringify({ password: $('login-password').value }),
+        });
+        setToken(token);
+        $('login-password').value = '';
+        $('login-error').classList.add('hidden');
+        showApp();
+      } catch (err) {
+        $('login-error').textContent = err.message;
+        $('login-error').classList.remove('hidden');
+      }
+    });
+
+    $('logout-btn').addEventListener('click', showLogin);
+
+    getToken() ? showApp().catch(showLogin) : showLogin();
+  </script>
+</body>
+</html>

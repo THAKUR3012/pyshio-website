@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>MR Dashboard | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <script src="/features/assistant/assistant.js" defer></script>
+  <script src="/features/pharma_insights/insights.js"></script>
+  <style>
+    .field { margin-top: .25rem; width: 100%; padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: .5rem; background: #fff; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+  <header id="site-nav"></header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div><h1 id="welcome" class="text-2xl font-bold text-slate-900"></h1><p id="sub" class="text-sm text-slate-500"></p></div>
+      <div class="flex flex-wrap gap-1 p-1 bg-slate-200/60 rounded-lg text-sm font-medium">
+        <button data-tab="next" class="tab px-4 py-1.5 rounded-md">Who to visit next</button>
+        <button data-tab="insights" class="tab px-4 py-1.5 rounded-md">Sales &amp; doctor-wise</button>
+        <button data-tab="doctors" class="tab px-4 py-1.5 rounded-md">Doctors in my territory</button>
+        <button data-tab="meetings" class="tab px-4 py-1.5 rounded-md">My meeting requests</button>
+      </div>
+    </div>
+
+    <section data-panel="next" class="panel hidden space-y-4">
+      <div id="next-alerts"></div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h2 class="font-semibold text-slate-900">Who to visit next</h2>
+        <p id="next-note" class="text-xs text-slate-500 mb-3"></p>
+        <div id="next-list" class="space-y-2"></div>
+      </div>
+      <div id="next-anon"></div>
+    </section>
+
+    <section data-panel="insights" class="panel space-y-4">
+      <form id="ins-filters" class="bg-white rounded-xl border border-slate-200 p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm items-end">
+        <label class="text-slate-600">Period<select name="days" class="field"><option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option>
+          <option value="180">Last 6 months</option><option value="365">Last 12 months</option></select></label>
+        <label class="text-slate-600">Care area<select name="care_area" class="field"></select></label>
+        <label class="text-slate-600">Product<select name="product_id" class="field"><option value="">All our products</option></select></label>
+        <button class="px-4 py-2 bg-violet-600 text-white font-semibold rounded-lg">Show</button>
+      </form>
+      <div id="insights" class="space-y-4"></div>
+    </section>
+
+    <section data-panel="doctors" class="panel hidden space-y-3">
+      <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-wrap gap-2 text-sm items-end">
+        <label class="text-slate-600">Search<input id="doc-q" placeholder="Name, clinic or speciality" class="field" /></label>
+        <label class="text-slate-600">Care area<select id="doc-area" class="field"></select></label>
+        <label class="flex items-center gap-2 text-slate-600 pb-2"><input id="doc-sharing" type="checkbox" /> Only doctors shown by name</label>
+      </div>
+      <div id="doc-list" class="bg-white rounded-xl border border-slate-200 p-2"></div>
+      <p class="text-xs text-slate-500">Doctors decide whether to accept meeting requests and whether to share prescribing insights. You can send each doctor up to 3 requests a month, one open at a time.</p>
+    </section>
+
+    <section data-panel="meetings" class="panel hidden bg-white rounded-xl border border-slate-200 p-4"><div id="meet-list"></div></section>
+  </main>
+
+  <!-- Request a meeting -->
+  <div id="req" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <form id="req-form" class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-3 text-sm">
+      <div class="flex items-center justify-between"><h2 class="font-semibold">Request a meeting with <span id="req-doctor"></span></h2>
+        <button type="button" data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button></div>
+      <label class="block text-slate-600">Purpose<input name="purpose" required maxlength="300" placeholder="e.g. Share new clinical data on …" class="field" /></label>
+      <label class="block text-slate-600">Products (optional)<input name="products" maxlength="300" class="field" /></label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="text-slate-600">Preferred date<input name="preferred_date" type="date" class="field" /></label>
+        <label class="text-slate-600">Preferred time<input name="preferred_time" type="time" class="field" /></label>
+      </div>
+      <p class="text-xs text-slate-500">The doctor picks the final time or declines. Please follow your company's code of conduct and UCPMP 2024.</p>
+      <p id="req-msg" class="hidden"></p>
+      <button class="w-full py-2.5 bg-violet-600 text-white font-semibold rounded-lg">Send request</button>
+    </form>
+  </div>
+
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    let mr, doctors = [], requesting = null;
+
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('bg-white', t.dataset.tab === tab));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
+      history.replaceState(null, '', `#${tab}`);
+      ({ next: loadNext, insights: loadInsights, doctors: loadDoctors, meetings: loadMeetings })[tab]();
+    }
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+    // ---------- Who to visit next (ranked; anonymous doctors only on public facts) ----------
+    let plan = null;
+    async function loadNext() {
+      const [p, alerts] = await Promise.all([api('/api/mr/next-actions'), api('/api/mr/alerts').catch(() => [])]);
+      plan = p;
+      $('next-note').textContent = p.note;
+      $('next-alerts').innerHTML = alerts.length ? `<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm">
+          <p class="font-semibold text-amber-900">Unusual changes in your products</p>
+          ${alerts.slice(0, 5).map(a => `<p class="text-amber-900">${escapeHtml(a.message)}</p>`).join('')}</div>` : '';
+      const card = (d, waiting) => `<div class="rounded-lg border border-slate-200 p-3 flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0 flex-1"><p class="font-medium">${escapeHtml(d.name)} <span class="text-xs text-slate-500">${escapeHtml(d.clinic_name)}, ${escapeHtml(d.city)}</span>
+            ${d.shares_insights ? '<span class="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">shares insights</span>' : ''}</p>
+            <p class="text-xs text-slate-500">${d.specialities.map(escapeHtml).join(', ')}</p>
+            <ul class="mt-1 text-sm text-slate-700 list-disc ml-5">${d.reasons.map(r => `<li>${escapeHtml(r)}</li>`).join('')}</ul>
+            <div data-brief-box="${d.doctor_id}"></div></div>
+          <div class="flex flex-col gap-1.5">${waiting ? `<span class="text-xs text-slate-500">${escapeHtml(d.status)}</span>` :
+            `<button type="button" data-next-req="${d.doctor_id}" class="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-semibold">Request meeting</button>`}
+            <button type="button" data-brief="${d.doctor_id}" class="px-3 py-1.5 border border-slate-300 rounded-lg text-xs">Visit brief</button></div></div>`;
+      $('next-list').innerHTML = (p.next.map(d => card(d, false)).join('') + p.waiting.map(d => card(d, true)).join(''))
+        || '<p class="text-sm text-slate-500">No doctors in your territory accept meeting requests right now.</p>';
+      $('next-anon').innerHTML = p.anonymous_opportunities.length ? `<div class="bg-white rounded-xl border border-slate-200 p-4">
+          <h3 class="font-semibold text-slate-900">Other prescribers of your salts <span class="text-xs font-normal text-slate-500">(anonymous; counts under 5 hidden)</span></h3>
+          ${P.table([{ label: 'Doctor', render: a => escapeHtml(a.label) }, { label: 'Type', key: 'category' }, { label: 'City', key: 'city' },
+            { label: 'Prescriptions (90 days)', num: true, render: a => escapeHtml(a.market_prescriptions) },
+            { label: 'Your share', num: true, render: a => a.share_percent == null ? '—' : `${a.share_percent}%` }], p.anonymous_opportunities)}</div>` : '';
+    }
+    $('next-list').addEventListener('click', async e => {
+      const req = e.target.closest('[data-next-req]'), brief = e.target.closest('[data-brief]');
+      if (req) {
+        const d = plan.next.find(x => x.doctor_id === Number(req.dataset.nextReq));
+        requesting = { id: d.doctor_id, name: d.name };
+        $('req-form').reset();
+        $('req-doctor').textContent = d.name;
+        $('req-form').elements.preferred_date.min = P.isoDate(P.today());
+        P.setMessage($('req-msg'), '', 'info');
+        P.openModal('req');
+      }
+      if (brief) {
+        const box = document.querySelector(`[data-brief-box="${brief.dataset.brief}"]`);
+        box.innerHTML = '<p class="text-xs text-slate-500 mt-2">Preparing…</p>';
+        try {
+          const b = await api(`/api/mr/next-actions/${brief.dataset.brief}/brief`);
+          box.innerHTML = `<div class="mt-2 rounded-lg bg-violet-50 border border-violet-200 p-2 text-sm"><p class="text-xs font-semibold text-violet-900">Visit brief</p>
+            <ul class="list-disc ml-5">${b.bullets.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul></div>`;
+        } catch (err) { box.innerHTML = `<p class="text-xs text-red-700">${escapeHtml(err.message)}</p>`; }
+      }
+    });
+
+    // ---------- Insights ----------
+    async function loadInsights() {
+      const params = new URLSearchParams();
+      for (const [k, v] of new FormData($('ins-filters'))) if (String(v).trim()) params.set(k, String(v).trim());
+      const data = await api(`/api/mr/insights?${params}`);
+      PyshioInsights.render($('insights'), data, { chartPrefix: 'mr' });
+      const sel = $('ins-filters').elements.product_id;
+      if (sel.options.length <= 1 && data.products.length && !params.get('product_id')) {
+        sel.innerHTML = '<option value="">All our products</option>' + data.products.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+      }
+    }
+    $('ins-filters').addEventListener('submit', e => { e.preventDefault(); loadInsights(); });
+
+    // ---------- Doctors ----------
+    const REQ = { pending: 'Request waiting', accepted: 'Meeting accepted', declined: 'Declined last time', completed: 'Met', cancelled: 'Cancelled' };
+    async function loadDoctors() {
+      const params = new URLSearchParams();
+      if ($('doc-q').value.trim()) params.set('q', $('doc-q').value.trim());
+      if ($('doc-area').value) params.set('care_area', $('doc-area').value);
+      doctors = await api(`/api/mr/doctors?${params}`);
+      const rows = doctors.filter(d => !$('doc-sharing').checked || d.shares_insights);
+      $('doc-list').innerHTML = P.table([
+        { label: 'Doctor', render: d => `<p class="font-medium"><a href="/doctors/${encodeURIComponent(d.slug)}" target="_blank" class="hover:underline">${escapeHtml(d.name)}</a></p><p class="text-xs text-slate-500">${escapeHtml(d.category)}${d.specialities.length ? ' · ' + d.specialities.map(escapeHtml).join(', ') : ''}</p>` },
+        { label: 'Clinic', render: d => `${escapeHtml(d.clinic_name)}<p class="text-xs text-slate-500">${escapeHtml(d.address)}, ${escapeHtml(d.city)}</p>` },
+        { label: 'In insights', render: d => d.shares_insights ? '<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-800">By name</span>' : '<span class="text-xs text-slate-400">Anonymous</span>' },
+        { label: 'Last contact', render: d => d.last_met ? `Met ${escapeHtml(P.prettyDate(d.last_met.slice(0, 10)))}` : escapeHtml(REQ[d.last_request] || '—') },
+        { label: '', render: d => !d.accepts_meetings ? '<span class="text-xs text-slate-400">Not taking requests</span>'
+            : d.last_request === 'pending' ? '<span class="text-xs text-amber-700">Waiting for reply</span>'
+            : `<button type="button" data-request="${d.id}" class="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-semibold">Request meeting</button>` },
+      ], rows, { empty: 'No approved doctors in your territory match.' });
+    }
+    let docTimer;
+    $('doc-q').addEventListener('input', () => { clearTimeout(docTimer); docTimer = setTimeout(loadDoctors, 250); });
+    $('doc-area').addEventListener('change', loadDoctors);
+    $('doc-sharing').addEventListener('change', loadDoctors);
+    $('doc-list').addEventListener('click', e => {
+      const b = e.target.closest('[data-request]');
+      if (!b) return;
+      requesting = doctors.find(d => d.id === Number(b.dataset.request));
+      $('req-form').reset();
+      $('req-doctor').textContent = requesting.name;
+      $('req-form').elements.preferred_date.min = P.isoDate(P.today());
+      P.setMessage($('req-msg'), '', 'info');
+      P.openModal('req');
+    });
+    $('req-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        await api('/api/mr/requests', { method: 'POST', body: { doctor_id: requesting.id, purpose: f.purpose.value, products: f.products.value || null,
+          preferred_date: f.preferred_date.value || null, preferred_time: f.preferred_time.value || null } });
+        P.closeModal('req');
+        P.toast(`Request sent to ${requesting.name}`, 'success');
+        loadDoctors(); if (plan) loadNext();
+      } catch (err) { P.setMessage($('req-msg'), err.message, 'error'); }
+    });
+
+    // ---------- Meetings ----------
+    const MEET = { pending: ['Waiting for doctor', 'bg-amber-100 text-amber-800'], accepted: ['Accepted', 'bg-sky-100 text-sky-800'],
+      declined: ['Declined', 'bg-slate-200 text-slate-600'], completed: ['Met', 'bg-emerald-100 text-emerald-800'], cancelled: ['Cancelled', 'bg-slate-200 text-slate-600'] };
+    async function loadMeetings() {
+      const list = await api('/api/mr/requests');
+      $('meet-list').innerHTML = P.table([
+        { label: 'Sent', render: r => escapeHtml(P.prettyDate(r.created_at.slice(0, 10))) },
+        { label: 'Doctor', render: r => `<p>${escapeHtml(r.doctor_name)}</p><p class="text-xs text-slate-500">${escapeHtml(r.clinic_name)}, ${escapeHtml(r.doctor_city)}</p>` },
+        { label: 'Purpose', render: r => `${escapeHtml(r.purpose)}${r.products ? `<p class="text-xs text-slate-500">${escapeHtml(r.products)}</p>` : ''}` },
+        { label: 'Status', render: r => { const [l, c] = MEET[r.status]; return `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${c}">${l}</span>`
+            + (r.scheduled_for ? `<p class="text-xs text-slate-700 mt-1 font-medium">${escapeHtml(new Date(r.scheduled_for).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))}</p>` : '')
+            + (r.doctor_note ? `<p class="text-xs text-slate-500">“${escapeHtml(r.doctor_note)}”</p>` : ''); } },
+        { label: '', render: r => ['pending', 'accepted'].includes(r.status) ? `<button type="button" data-cancel="${r.id}" class="text-xs text-red-600 hover:underline">Cancel</button>` : '' },
+      ], list, { empty: 'No requests yet. Find doctors in your territory to request a meeting.' });
+    }
+    $('meet-list').addEventListener('click', async e => {
+      const b = e.target.closest('[data-cancel]');
+      if (!b || !confirm('Cancel this request?')) return;
+      try { await api(`/api/mr/requests/${b.dataset.cancel}/cancel`, { method: 'POST' }); loadMeetings(); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    loadInsights = P.guard(loadInsights, 'insights');
+    loadDoctors = P.guard(loadDoctors, 'doc-list');
+    loadMeetings = P.guard(loadMeetings, 'meet-list');
+
+    (async () => {
+      await P.requireRole('mr');
+      mr = await api('/api/mr/profile');
+      $('welcome').textContent = `Hi, ${mr.name}`;
+      $('sub').textContent = `${mr.company} · ${mr.division || 'All care areas'} · ${[mr.territory_city || 'Whole state', mr.territory_state].join(', ')}`;
+      const areas = mr.care_areas.length ? mr.care_areas : mr.care_areas_all;
+      $('ins-filters').elements.care_area.innerHTML = `<option value="">${mr.care_areas.length ? 'All my division' : 'All care areas'}</option>`
+        + areas.map(a => `<option>${escapeHtml(a)}</option>`).join('');
+      $('doc-area').innerHTML = '<option value="">Any</option>' + areas.map(a => `<option>${escapeHtml(a)}</option>`).join('');
+      const start = location.hash.slice(1);
+      showTab(['next', 'insights', 'doctors', 'meetings'].includes(start) ? start : 'next');
+    })().catch(P.fatal);
+  </script>
+</body>
+</html>

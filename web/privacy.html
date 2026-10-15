@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Privacy Policy | Pyshio</title>
+  <meta name="description" content="How Pyshio collects, uses, shares and protects your personal and health data." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50">
+  <header id="site-nav"></header>
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+    <article class="bg-white rounded-2xl border border-slate-200 p-6 md:p-10 space-y-5 leading-relaxed text-slate-700">
+      <p class="rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm px-4 py-3">Template for review: have a lawyer check this policy against the Digital Personal Data Protection Act, 2023 and your actual practices before launch.</p>
+      <h1 class="text-3xl font-bold text-slate-900">Privacy Policy</h1>
+      <p class="text-sm text-slate-500">Last updated: <span id="updated"></span></p>
+
+      <h2 class="text-xl font-semibold text-slate-900">What we collect</h2>
+      <ul class="list-disc pl-6 space-y-1">
+        <li><strong>Account details:</strong> name, email, mobile number, and optionally date of birth and sex.</li>
+        <li><strong>Location:</strong> the home location you pin on the map, used to find doctors and pharmacies near you.</li>
+        <li><strong>Health information:</strong> appointment reasons, messages with your doctor, prescriptions and medicine orders.</li>
+        <li><strong>Health profile (optional):</strong> blood group, allergies, long-term conditions and an emergency contact.</li>
+        <li><strong>Family members (optional):</strong> name, relation, date of birth, sex, blood group, allergies and conditions of family members you add. Add someone only with their permission (or as the parent or guardian of a child).</li>
+        <li><strong>Medicine log (optional):</strong> the doses you mark as taken or skipped, and your reminder times.</li>
+        <li><strong>Payments:</strong> handled by Razorpay; we store only payment references, never card or UPI details.</li>
+        <li><strong>Doctors and pharmacies:</strong> professional registration and licence details for verification.</li>
+      </ul>
+
+      <h2 class="text-xl font-semibold text-slate-900">How your prescriptions are shared</h2>
+      <p>If you agree (at sign-up, or later in <a href="/account#profile" class="text-sky-700 underline">your profile</a>), prescriptions your doctor issues are sent automatically to verified pharmacies near your home so they can quote prices. Before you order, pharmacies see only the medicines, quantities, the prescribing doctor's credentials and their distance from you. Your name, phone, address and diagnosis are shared only with the pharmacy you order from. You can withdraw this consent at any time; you can then still share a specific prescription yourself.</p>
+
+      <h2 class="text-xl font-semibold text-slate-900">Who else sees your data</h2>
+      <ul class="list-disc pl-6 space-y-1">
+        <li>The doctor you book sees your contact details, reason for visit and your visits with them only.</li>
+        <li>Platform administrators can access records to verify partners, resolve disputes and process refunds; every administrative action is logged.</li>
+        <li>Service providers: Razorpay (payments), our email provider and our hosting provider, only as needed to run the service.</li>
+        <li>Pharmacies you buy from see when your medicines are due to run out, so they can keep stock; you get a reminder when a doctor-approved refill is due.</li>
+        <li>Pharma companies and their medical representatives <strong>never</strong> see your name, contact details, age or test results. They see only how many times medicines were prescribed, counted across patients and doctors; disease figures for groups smaller than 5 are hidden.</li>
+        <li>When your doctor suggests tests, nearby verified labs see only the tests and distance until you book one. Your reports are stored privately and can be opened only by you, the lab that made them, the doctor who ordered them, and doctors you book on Pyshio if you leave "share with my doctors" on for that report.</li>
+        <li>Doctors you book see your health profile (or the family member's, when you book for them) and how regularly you've marked your medicines as taken, to treat you safely.</li>
+        <li>Video consultations run on Jitsi Meet. Only a random room name is shared with that service, never your name, phone or email; the room opens only for you and your doctor around the appointment time, and calls are not recorded by Pyshio.</li>
+        <li>When you book a pharmacy or lab, a chat with them opens so you can talk about your order. Only you and that pharmacy or lab can read it; either of you can close it.</li>
+        <li>We publish and use health statistics (for example, how common a disease is by age band, city or state) only in aggregate, with groups smaller than 5 hidden, so no one can be identified.</li>
+      </ul>
+
+      <h2 class="text-xl font-semibold text-slate-900">Your rights</h2>
+      <ul class="list-disc pl-6 space-y-1">
+        <li><strong>Access and portability:</strong> download all your data from <a href="/account#profile" class="text-sky-700 underline">My health → Profile</a>.</li>
+        <li><strong>Correction:</strong> update your details in your profile at any time.</li>
+        <li><strong>Withdraw consent:</strong> turn off automatic prescription sharing in your profile.</li>
+        <li><strong>Erasure:</strong> close your account from your profile. We remove your personal details; records we must keep by law (for example prescriptions and invoices) are retained without your name or contact details.</li>
+        <li><strong>Grievances:</strong> contact our Grievance Officer at <span class="support-email">the address below</span>.</li>
+      </ul>
+
+      <h2 class="text-xl font-semibold text-slate-900">Security and retention</h2>
+      <p>Passwords are stored as salted hashes, sessions use secure cookies, and access to health data is limited to the people above. We keep data while your account is open and for as long as the law requires afterwards.</p>
+
+      <h2 class="text-xl font-semibold text-slate-900">Contact</h2>
+      <p id="contact">Email <span class="support-email">—</span><span id="phone-line"></span></p>
+    </article>
+  </main>
+  <script>
+    document.getElementById('updated').textContent = new Date(document.lastModified).toLocaleDateString('en-IN', { dateStyle: 'long' });
+    Pyshio.api('/api/config').then(c => {
+      document.querySelectorAll('.support-email').forEach(el => { el.textContent = c.support_email || 'the support email on our website'; });
+      if (c.support_phone) document.getElementById('phone-line').textContent = ` or call ${c.support_phone}`;
+    }).catch(() => {});
+  </script>
+</body>
+</html>

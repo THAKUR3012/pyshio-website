@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Page not found | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+  <header id="site-nav"></header>
+  <main class="max-w-xl mx-auto px-4 py-24 text-center">
+    <p class="text-6xl font-bold text-sky-600">404</p>
+    <h1 class="text-2xl font-bold text-slate-900 mt-4">We couldn't find that page</h1>
+    <p class="text-slate-600 mt-2">The link may be old, or the doctor may no longer be listed.</p>
+    <div class="flex flex-wrap justify-center gap-3 mt-8">
+      <a href="/" class="px-5 py-2.5 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Find a doctor near you</a>
+      <a href="/account" class="px-5 py-2.5 border border-slate-300 rounded-lg hover:bg-white">My health</a>
+    </div>
+  </main>
+</body>
+</html>

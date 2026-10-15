@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Doctor Dashboard | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <script src="/features/assistant/assistant.js" defer></script>
+  <script src="/features/health_profile/health-profile.js" defer></script>
+  <script src="/features/video_consults/video-settings.js" defer></script>
+  <style>
+    .data-table th { text-align: center; font-weight: 700; }
+    .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .data-table td.txt { text-align: left; }
+    .field { margin-top: .25rem; width: 100%; padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: .5rem; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+  <header id="site-nav"></header>
+
+  <!-- ============ Registration (logged out) ============ -->
+  <main id="register-view" class="hidden max-w-3xl mx-auto px-4 sm:px-6 py-10">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-slate-900">Join Pyshio as a doctor or physiotherapist</h1>
+      <p class="text-slate-600 mt-1">Already registered? <a href="/login?next=/doctor" class="text-sky-700 hover:underline font-medium">Log in</a>.
+        Your profile goes live after we verify your registration number.</p>
+    </div>
+    <form id="register-form" method="post" action="#" onsubmit="return false" class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 space-y-6">
+      <fieldset class="grid sm:grid-cols-2 gap-4">
+        <legend class="font-semibold text-slate-900 mb-2 col-span-full">Account</legend>
+        <label class="text-sm text-slate-600">Full name (as on registration)<input name="name" required placeholder="Dr. Meera Iyer" class="field" /></label>
+        <label class="text-sm text-slate-600">Mobile<input name="phone" required type="tel" class="field" /></label>
+        <label class="text-sm text-slate-600">Email<input name="email" required type="email" class="field" /></label>
+        <label class="text-sm text-slate-600">Password (8+ characters)<input name="password" required minlength="8" type="password" class="field" /></label>
+      </fieldset>
+      <div id="reg-profile-fields"></div>
+      <label class="block text-sm text-slate-600 max-w-xs">Consultation fee (₹)<input name="consultation_fee" required type="number" min="0" max="100000" value="800" class="field" /></label>
+      <p class="text-xs text-slate-500">Default hours are Mon–Sat 10 AM–1 PM and 5–8 PM. You can change hours and add more services after registering.</p>
+      <button class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-xl hover:bg-sky-700">Submit for verification</button>
+      <p id="reg-msg" class="hidden"></p>
+    </form>
+  </main>
+
+  <!-- ============ Dashboard ============ -->
+  <main id="app-view" class="hidden max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div id="status-banner" class="hidden rounded-lg border px-4 py-3 text-sm"></div>
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 id="welcome" class="text-2xl font-bold text-slate-900"></h1>
+        <a id="public-link" class="text-sm text-sky-700 hover:underline" target="_blank">View public profile ↗</a>
+      </div>
+      <div class="flex flex-wrap gap-1 p-1 bg-slate-200/60 rounded-lg text-sm font-medium">
+        <button data-tab="appointments" class="tab px-4 py-1.5 rounded-md">Appointments</button>
+        <button data-tab="requests" class="tab px-4 py-1.5 rounded-md">Requests <span id="req-count" class="hidden ml-1 px-1.5 rounded-full bg-red-600 text-white text-xs"></span></button>
+        <button data-tab="patients" class="tab px-4 py-1.5 rounded-md">Patients</button>
+        <button data-tab="prescriptions" class="tab px-4 py-1.5 rounded-md">Prescriptions</button>
+        <button data-tab="schedule" class="tab px-4 py-1.5 rounded-md">Schedule</button>
+        <button data-tab="profile" class="tab px-4 py-1.5 rounded-md">Profile</button>
+      </div>
+    </div>
+
+    <section id="stats" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3"></section>
+
+    <!-- Appointments -->
+    <section data-panel="appointments" class="panel bg-white rounded-2xl border border-slate-200">
+      <div class="p-4 border-b border-slate-200 flex flex-wrap gap-2 items-center text-sm">
+        <button data-range="today" class="range px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Today</button>
+        <button data-range="upcoming" class="range px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Upcoming</button>
+        <button data-range="past" class="range px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Past</button>
+        <button data-range="all" class="range px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">All</button>
+        <select id="f-status" class="px-2 py-1.5 border border-slate-300 rounded-lg">
+          <option value="">Any status</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option>
+          <option value="no_show">No-show</option><option value="cancelled">Cancelled</option>
+        </select>
+        <input id="f-q" placeholder="Search patient or reference" class="px-3 py-1.5 border border-slate-300 rounded-lg flex-1 min-w-[12rem]" />
+        <button id="new-booking-btn" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">+ New booking</button>
+        <button id="export-btn" class="px-3 py-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-900">Export CSV</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="data-table w-full text-sm">
+          <thead class="bg-slate-50 text-slate-700"><tr>
+            <th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Date</th><th class="px-3 py-3">Time</th><th class="px-3 py-3">Patient</th>
+            <th class="px-3 py-3">Service</th><th class="px-3 py-3">Fee</th><th class="px-3 py-3">Payment</th><th class="px-3 py-3">Status</th><th class="px-3 py-3"></th>
+          </tr></thead>
+          <tbody id="appt-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Patients -->
+    <section data-panel="patients" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <div class="p-4 border-b border-slate-200"><input id="p-q" placeholder="Search your patients" class="px-3 py-1.5 border border-slate-300 rounded-lg w-full max-w-sm text-sm" /></div>
+      <div class="overflow-x-auto">
+        <table class="data-table w-full text-sm">
+          <thead class="bg-slate-50 text-slate-700"><tr>
+            <th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Patient</th><th class="px-3 py-3">Mobile</th><th class="px-3 py-3">Email</th>
+            <th class="px-3 py-3">Bookings</th><th class="px-3 py-3">Completed</th><th class="px-3 py-3">Last visit</th>
+          </tr></thead>
+          <tbody id="patient-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Requests: patients and medical representatives -->
+    <section data-panel="requests" class="panel hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-amber-200 p-4 space-y-3">
+        <h2 class="font-semibold text-slate-900">🏠 Home-visit requests <span class="text-xs font-normal text-slate-500">· send your charges and the final time; the visit is booked once the patient accepts</span></h2>
+        <div id="req-home" class="space-y-3 text-sm"></div>
+      </div>
+      <div class="grid lg:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 class="font-semibold text-slate-900">New bookings <span class="text-xs font-normal text-slate-500">(last 7 days)</span></h2>
+          <div id="req-bookings" class="mt-2 space-y-2 text-sm"></div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 class="font-semibold text-slate-900">Patients waiting for a reply</h2>
+          <div id="req-messages" class="mt-2 space-y-2 text-sm"></div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 class="font-semibold text-slate-900">Refills used <span class="text-xs font-normal text-slate-500">(last 30 days)</span></h2>
+          <div id="req-refills" class="mt-2 space-y-2 text-sm"></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="font-semibold text-slate-900">Medical representative (MR) meeting requests</h2>
+          <button type="button" data-goto-tab="profile" class="text-sm text-sky-700 hover:underline">MR settings</button>
+        </div>
+        <p id="req-mr-note" class="text-xs text-slate-500"></p>
+        <div id="req-mr"></div>
+      </div>
+    </section>
+
+    <!-- Prescriptions -->
+    <section data-panel="prescriptions" class="panel hidden space-y-3">
+      <p class="text-sm text-slate-500">Every prescription you've issued, newest first, with where it was dispensed.</p>
+      <div id="all-rx" class="grid md:grid-cols-2 gap-3 text-sm"></div>
+    </section>
+
+    <!-- Schedule -->
+    <section data-panel="schedule" class="panel hidden grid lg:grid-cols-2 gap-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <div class="flex items-center justify-between"><h2 class="font-semibold">Weekly hours</h2>
+          <button id="save-hours" class="px-3 py-1.5 bg-sky-600 text-white text-sm font-semibold rounded-lg hover:bg-sky-700">Save hours</button></div>
+        <div id="hours-editor" class="space-y-3 text-sm"></div>
+      </div>
+      <div class="space-y-6">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <h2 class="font-semibold">Services &amp; fees</h2>
+          <div id="services" class="space-y-2 text-sm"></div>
+          <form id="service-form" class="grid grid-cols-2 sm:grid-cols-[1fr_5rem_6rem_auto] gap-2 text-sm items-end border-t border-slate-200 pt-3">
+            <label class="text-slate-600">New service<input name="name" required placeholder="e.g. Dry needling" class="field" /></label>
+            <label class="text-slate-600">Min<input name="duration" required type="number" min="10" max="240" value="45" class="field" /></label>
+            <label class="text-slate-600">Fee ₹<input name="fee" required type="number" min="0" value="1000" class="field" /></label>
+            <button class="px-3 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Add</button>
+          </form>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <h2 class="font-semibold">Time off</h2>
+          <form id="block-form" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm items-end">
+            <label class="text-slate-600">Date<input name="block_date" required type="date" class="field" /></label>
+            <label class="text-slate-600">From<input name="start_time" type="time" class="field" /></label>
+            <label class="text-slate-600">To<input name="end_time" type="time" class="field" /></label>
+            <label class="text-slate-600">Reason<input name="reason" placeholder="Leave" class="field" /></label>
+            <button class="col-span-full sm:col-span-1 px-3 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Block</button>
+            <p class="col-span-full text-xs text-slate-500">Leave From/To blank to block the whole day.</p>
+            <label class="col-span-full flex items-center gap-2 text-slate-600"><input name="cancel_conflicts" type="checkbox" />
+              Cancel any bookings in this time and email those patients (online fees refunded)</label>
+          </form>
+          <p id="block-msg" class="hidden"></p>
+          <ul id="blocks" class="divide-y divide-slate-100 text-sm"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Profile -->
+    <section data-panel="profile" class="panel hidden">
+      <div id="video-settings"></div>
+      <div class="mb-6 bg-white rounded-2xl border border-slate-200 p-6 max-w-3xl space-y-4">
+        <h2 class="font-semibold">Medical representatives &amp; prescribing insights</h2>
+        <label class="flex items-start gap-3 text-sm text-slate-700">
+          <input id="set-meetings" type="checkbox" class="mt-1" />
+          <span><strong>Accept meeting requests from MRs</strong>
+            <span class="block text-xs text-slate-500">Representatives of verified pharma companies can request a meeting. You choose the time, or decline. Each MR can send you at most 3 requests a month.</span></span>
+        </label>
+        <label class="flex items-start gap-3 text-sm text-slate-700">
+          <input id="set-insights" type="checkbox" class="mt-1" />
+          <span><strong>Show my name to pharma companies and MRs</strong> (optional)
+            <span class="block text-xs text-slate-500">Verified pharma companies and their MRs see how often medicines are prescribed in their area, doctor by doctor, as counts only. They never see patient names, ages, contact details or individual diagnoses. <strong>If this is off</strong>, your counts appear under a code (e.g. “Doctor 7KQ2 · General physician · Mumbai”) without your name or clinic. <strong>If on</strong>, your name and clinic are shown. You can change this any time; every change is logged.</span></span>
+        </label>
+        <p id="set-msg" class="hidden"></p>
+      </div>
+      <form id="profile-form" class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 space-y-6 max-w-3xl">
+        <fieldset class="grid sm:grid-cols-2 gap-4">
+          <legend class="font-semibold text-slate-900 mb-2 col-span-full">Contact</legend>
+          <label class="text-sm text-slate-600">Full name<input name="name" required class="field" /></label>
+          <label class="text-sm text-slate-600">Mobile<input name="phone" required class="field" /></label>
+        </fieldset>
+        <div id="edit-profile-fields"></div>
+        <p class="text-xs text-amber-700">Changing your qualification or registration number sends your profile back for verification.</p>
+        <button class="px-6 py-2.5 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Save profile</button>
+      </form>
+      <div class="mt-6 bg-white rounded-2xl border border-slate-200 p-6 max-w-3xl space-y-3">
+        <h2 class="font-semibold">Online fees &amp; payouts</h2>
+        <div id="earn-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
+        <div class="overflow-x-auto"><table class="data-table w-full text-sm">
+          <thead class="bg-slate-50"><tr><th class="px-3 py-2">Sr No</th><th class="px-3 py-2">Date</th><th class="px-3 py-2">Amount</th><th class="px-3 py-2">Reference</th></tr></thead>
+          <tbody id="payout-body" class="divide-y divide-slate-100"></tbody></table></div>
+      </div>
+      <form id="password-form" class="mt-6 bg-white rounded-2xl border border-slate-200 p-6 max-w-3xl grid sm:grid-cols-3 gap-3 items-end text-sm">
+        <label class="text-slate-600">Current password<input name="current_password" type="password" required class="field" /></label>
+        <label class="text-slate-600">New password<input name="new_password" type="password" minlength="8" required class="field" /></label>
+        <button class="px-4 py-2 bg-slate-800 text-white font-semibold rounded-lg">Change password</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Appointment detail -->
+  <div id="detail" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-white rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 class="font-semibold">Appointment <span id="d-ref" class="text-slate-500 font-normal"></span></h2>
+        <button data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button>
+      </div>
+      <div class="p-6 grid md:grid-cols-2 gap-6">
+        <div class="space-y-4">
+          <div id="d-info" class="text-sm space-y-1"></div>
+          <div id="d-mark" class="flex flex-wrap gap-2"></div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-900">Private notes <span class="font-normal text-slate-500">(patient can't see)</span>
+              <textarea id="d-notes" rows="4" maxlength="5000" class="field text-sm font-normal"></textarea></label>
+            <button id="save-notes" class="mt-1 px-3 py-1.5 bg-slate-800 text-white text-sm rounded-lg">Save notes</button>
+          </div>
+          <div id="d-rx" class="border-t border-slate-200 pt-4 space-y-2 text-sm"></div>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900 mb-2">Messages with patient</h3>
+            <div id="d-messages" class="space-y-2 max-h-56 overflow-y-auto"></div>
+            <form id="msg-form" class="mt-2 flex gap-2">
+              <input id="msg-body" maxlength="2000" placeholder="Message the patient…" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+              <button class="px-3 py-2 bg-sky-600 text-white text-sm font-semibold rounded-lg">Send</button>
+            </form>
+          </div>
+          <div id="d-change" class="space-y-2 border-t border-slate-200 pt-4">
+            <h3 class="text-sm font-semibold text-slate-900">Reschedule or cancel</h3>
+            <div class="flex flex-wrap gap-2">
+              <input id="r-date" type="date" class="px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
+              <select id="r-time" class="px-2 py-1.5 border border-slate-300 rounded-lg text-sm min-w-[8rem]"><option value="">Pick a date</option></select>
+            </div>
+            <textarea id="action-msg" rows="2" maxlength="1000" placeholder="Message to patient (optional)" class="field text-sm resize-none"></textarea>
+            <div class="flex gap-2">
+              <button id="r-btn" disabled class="px-3 py-1.5 bg-sky-600 text-white text-sm font-semibold rounded-lg disabled:bg-slate-300">Reschedule</button>
+              <button id="c-btn" class="px-3 py-1.5 border border-red-300 text-red-700 text-sm font-semibold rounded-lg hover:bg-red-50">Cancel</button>
+            </div>
+          </div>
+          <p id="d-msg" class="hidden"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patient history -->
+  <div id="history" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 id="h-title" class="font-semibold"></h2>
+        <button data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button>
+      </div>
+      <div id="h-body" class="p-6 space-y-2 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- Walk-in / phone booking -->
+  <div id="walkin" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="walkin-title">
+    <form id="walkin-form" class="w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 id="walkin-title" class="font-semibold">Book a walk-in or phone patient</h2>
+        <button type="button" data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button>
+      </div>
+      <div class="p-6 grid grid-cols-2 gap-3 text-sm">
+        <label class="col-span-2 text-slate-600">Patient name<input name="name" required class="field" /></label>
+        <label class="text-slate-600">Mobile<input name="phone" required type="tel" class="field" /></label>
+        <label class="text-slate-600">Email (optional)<input name="email" type="email" class="field" /></label>
+        <p class="col-span-2 text-xs text-slate-500">With an email we create their account and send an invite to set a password.</p>
+        <label class="col-span-2 text-slate-600">Service<select name="service_id" id="w-service" class="field"></select></label>
+        <label class="text-slate-600">Date<input name="appointment_date" id="w-date" type="date" required class="field" /></label>
+        <label class="text-slate-600">Time<select name="appointment_time" id="w-time" required class="field"><option value="">Pick a date</option></select></label>
+        <label class="col-span-2 text-slate-600">Reason (optional)<input name="reason" maxlength="1000" class="field" /></label>
+        <p id="walkin-msg" class="col-span-2 hidden"></p>
+        <button class="col-span-2 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700">Book appointment</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Prescription writer -->
+  <div id="rx-writer" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <form id="rx-form" class="w-full max-w-4xl bg-white rounded-2xl shadow-xl max-h-[94vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 class="font-semibold">New prescription for <span id="rx-patient"></span></h2>
+        <button type="button" data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button>
+      </div>
+      <div class="p-6 space-y-5 text-sm">
+        <div id="rx-health"></div>
+        <details id="scribe-box" class="rounded-xl border border-sky-200 bg-sky-50/60 p-3">
+          <summary class="cursor-pointer font-semibold text-sky-900">Draft from consultation notes <span class="font-normal text-xs text-sky-800">(type or dictate; you review every line before issuing)</span></summary>
+          <label class="block mt-2 text-slate-600">Notes
+            <textarea id="scribe-notes" rows="4" maxlength="4000" class="field" placeholder="Dx: T2DM, HTN&#10;Tab Glycomet 500 1-0-1 x 30 days&#10;Telma 40 OD x 30 days&#10;Inv: HbA1c, Lipid profile&#10;Review after 1 month"></textarea></label>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <button type="button" id="scribe-go" class="px-4 py-2 bg-sky-700 text-white font-semibold rounded-lg hover:bg-sky-800">Draft prescription</button>
+            <button type="button" id="scribe-mic" class="hidden px-3 py-2 rounded-lg border border-sky-300 text-sky-900 hover:bg-sky-100" aria-pressed="false">Dictate</button>
+            <span id="scribe-msg" class="text-xs text-slate-600" role="status"></span>
+          </div>
+        </details>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <label class="text-slate-600">Age<input name="patient_age" type="number" min="0" max="120" class="field" /></label>
+          <label class="text-slate-600">Sex<select name="patient_sex" class="field"><option value="">—</option><option value="F">Female</option><option value="M">Male</option><option value="O">Other</option></select></label>
+          <label class="text-slate-600 col-span-2">Notes (optional)<input name="diagnosis" maxlength="1000" placeholder="Anything not in the diagnosis list" class="field" /></label>
+          <label class="text-slate-600">Pregnancy<select name="pregnancy" class="field"><option value="">Not applicable</option><option value="pregnant">Pregnant</option><option value="breastfeeding">Breastfeeding</option></select></label>
+        </div>
+        <div>
+          <p class="text-slate-600">Diagnosis <span class="text-xs text-slate-500">(pick from the list; used for your records and anonymous health statistics)</span></p>
+          <div id="cond-chips" class="flex flex-wrap gap-1.5 my-2"></div>
+          <div class="relative">
+            <input id="cond-search" autocomplete="off" placeholder="Search conditions, e.g. hypertension, J45, back pain" class="field" />
+            <div id="cond-results" class="absolute z-30 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg hidden max-h-64 overflow-y-auto"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-slate-900">Medicines</h3>
+            <button type="button" id="rx-add" class="text-sky-700 hover:underline font-medium">+ Add medicine</button></div>
+          <div id="rx-rows" class="space-y-3"></div>
+          <div id="rx-safety" class="hidden mt-3 space-y-2" aria-live="polite"></div>
+          <p class="text-xs text-slate-500 mt-2">Pick from the catalogue so pharmacies can price it instantly. Tick “generic OK” to let the patient get the same salt &amp; strength from a cheaper brand.</p>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-slate-900">Tests <span class="text-xs font-normal text-slate-500">(sent to labs near the patient for the cheapest / fastest report)</span></h3></div>
+          <div id="test-suggest" class="flex flex-wrap gap-1.5 mb-2"></div>
+          <div id="test-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
+          <div class="relative">
+            <input id="test-search" autocomplete="off" placeholder="Search tests, e.g. HbA1c, CBC, X-ray" class="field" />
+            <div id="test-results" class="absolute z-30 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg hidden max-h-56 overflow-y-auto"></div>
+          </div>
+        </div>
+        <label class="block text-slate-600">Advice / instructions<textarea name="advice" rows="2" maxlength="2000" class="field"></textarea></label>
+        <div class="grid sm:grid-cols-2 gap-3 max-w-2xl">
+          <label class="block text-slate-600">Follow-up visit
+            <select id="rx-follow" class="field"><option value="">No follow-up needed</option><option value="3">In 3 days</option><option value="7">In 1 week</option>
+              <option value="14">In 2 weeks</option><option value="30">In 1 month</option><option value="90">In 3 months</option><option value="date">On a date…</option></select></label>
+          <label id="rx-follow-date-box" class="hidden block text-slate-600">Follow-up date<input id="rx-follow-date" type="date" class="field" /></label>
+          <p class="sm:col-span-2 text-xs text-slate-500">The patient is reminded two days before and can book it in one tap.</p>
+        </div>
+        <label class="block text-slate-600 max-w-md">Refills the patient may request without a new visit
+          <select name="refills_allowed" class="field"></select>
+          <span class="block text-xs text-slate-500 mt-1">Only medicines marked “long-term” are refilled. Refills open a week before the supply runs out and stay valid for 6 months.</span></label>
+        <div class="flex items-center justify-between border-t border-slate-200 pt-4">
+          <p class="text-xs text-slate-500">Issuing sends it to the patient and to verified pharmacies and labs within <span id="rx-radius"></span> km of their home. Leave the medicine row empty for a tests-only prescription.</p>
+          <button class="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700">Issue prescription</button>
+        </div>
+        <p id="rx-msg" class="hidden"></p>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    let config, profile, appts = [], current = null, range = 'today', clinicPicker = null;
+
+    // ---------- Shared profile fields (registration + edit) ----------
+    function specialityBoxes(category, checked = []) {
+      return config.doctor_categories[category].specialities.map(s => `
+        <label class="inline-flex items-center gap-2 text-sm mr-4 mb-2"><input type="checkbox" name="specialities" value="${escapeHtml(s)}" ${checked.includes(s) ? 'checked' : ''} /> ${escapeHtml(s)}</label>`).join('');
+    }
+    function profileFieldsHtml() {
+      const cats = Object.entries(config.doctor_categories).map(([k, c]) => `<option value="${k}">${escapeHtml(c.label)}</option>`).join('');
+      return `
+        <fieldset class="grid sm:grid-cols-2 gap-4">
+          <legend class="font-semibold text-slate-900 mb-2 col-span-full">Professional details</legend>
+          <label class="text-sm text-slate-600">You are a<select name="category" class="field category-select">${cats}</select></label>
+          <label class="text-sm text-slate-600">Qualification<input name="qualification" required placeholder="MBBS, MD / BPT, MPT / BDS" class="field" /></label>
+          <label class="text-sm text-slate-600">Experience (years)<input name="experience_years" type="number" min="0" max="70" value="0" class="field" /></label>
+          <label class="text-sm text-slate-600">Registration number<input name="registration_no" required class="field" /></label>
+          <label class="text-sm text-slate-600 col-span-full">Registering council<input name="registration_council" placeholder="e.g. NMC / State Medical Council / State PT Council / Dental Council" class="field" /></label>
+          <div class="col-span-full"><p class="text-sm text-slate-600 mb-2">Specialities</p><div class="spec-boxes">${specialityBoxes('physiotherapist')}</div></div>
+          <label class="text-sm text-slate-600 col-span-full">About you (shown to patients)<textarea name="bio" rows="3" maxlength="2000" class="field"></textarea></label>
+        </fieldset>
+        <fieldset class="grid sm:grid-cols-2 gap-4 mt-6">
+          <legend class="font-semibold text-slate-900 mb-2 col-span-full">Clinic</legend>
+          <label class="text-sm text-slate-600">Clinic name<input name="clinic_name" required class="field" /></label>
+          <label class="text-sm text-slate-600">City<input name="city" required class="field" /></label>
+          <label class="text-sm text-slate-600">State<select name="state" class="field">${P.stateOptions(config.states)}</select></label>
+          <label class="text-sm text-slate-600 col-span-full">Address<input name="address" required class="field" /></label>
+          <label class="text-sm text-slate-600">PIN code<input name="pincode" pattern="\\d{6}" class="field" /></label>
+          <div class="col-span-full"><p class="text-sm text-slate-600 mb-1">Clinic location — patients within ${config.radius_km} km see you first</p><div class="clinic-map"></div></div>
+          <label class="text-sm text-slate-600">Slot length
+            <select name="slot_minutes" class="field">${[10, 15, 20, 30, 45, 60].map(m => `<option value="${m}" ${m === 30 ? 'selected' : ''}>${m} minutes</option>`).join('')}</select></label>
+          <div class="col-span-full text-sm text-slate-600 space-y-1">
+            <p>Payment options for patients</p>
+            <label class="flex items-center gap-2"><input type="checkbox" name="accepts_clinic_payment" checked /> Pay at clinic</label>
+            <label class="flex items-center gap-2"><input type="checkbox" name="accepts_online_payment" ${config.online_payments ? '' : 'disabled'} /> Pay online (Razorpay)
+              ${config.online_payments ? '' : '<span class="text-xs text-slate-400">— not enabled on this site yet</span>'}</label>
+          </div>
+          <div class="col-span-full grid sm:grid-cols-3 gap-3 text-sm text-slate-600 border-t border-slate-100 pt-3">
+            <label class="flex items-center gap-2 sm:col-span-3"><input type="checkbox" name="offers_home_visits" /> <span><strong class="text-slate-800">I do home visits</strong> — patients can ask you to visit; you send the charges and time for each request</span></label>
+            <label>Visit patients within (km)<input name="home_visit_radius_km" type="number" min="1" max="25" step="0.5" value="5" class="field" /></label>
+            <label>Usual travel charge (₹)<input name="home_visit_fee" type="number" min="0" max="20000" placeholder="e.g. 300" class="field" />
+              <span class="text-xs text-slate-400">Shown to patients as “travel from”</span></label>
+          </div>
+        </fieldset>`;
+    }
+
+    function readProfileForm(form) {
+      const f = form.elements;
+      const point = clinicPicker && clinicPicker.value();
+      return {
+        category: f.category.value, lat: point ? point.lat : null, lng: point ? point.lng : null,
+        qualification: f.qualification.value, registration_no: f.registration_no.value,
+        registration_council: f.registration_council.value || null, experience_years: Number(f.experience_years.value || 0),
+        specialities: [...form.querySelectorAll('input[name=specialities]:checked')].map(c => c.value),
+        bio: f.bio.value || null, clinic_name: f.clinic_name.value, address: f.address.value, city: f.city.value,
+        state: f.state.value || null,
+        pincode: f.pincode.value || null, slot_minutes: Number(f.slot_minutes.value),
+        accepts_clinic_payment: f.accepts_clinic_payment.checked, accepts_online_payment: f.accepts_online_payment.checked,
+        offers_home_visits: f.offers_home_visits.checked, home_visit_radius_km: Number(f.home_visit_radius_km.value || 5),
+        home_visit_fee: f.home_visit_fee.value === '' ? null : Number(f.home_visit_fee.value),
+      };
+    }
+
+    // ---------- Registration ----------
+    async function showRegister() {
+      $('register-view').classList.remove('hidden');
+      $('reg-profile-fields').innerHTML = profileFieldsHtml();
+      $('register-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const f = e.target.elements;
+        const btn = e.submitter || e.target.querySelector('button:not([type=button])');
+        btn.disabled = true;
+        try {
+          await api('/api/auth/register-doctor', { method: 'POST', body: {
+            name: f.name.value, phone: f.phone.value, email: f.email.value, password: f.password.value,
+            consultation_fee: Number(f.consultation_fee.value), ...readProfileForm(e.target) } });
+          location.reload();
+        } catch (err) {
+          P.setMessage($('reg-msg'), err.message, 'error');
+          btn.disabled = false;
+        }
+      });
+      const regForm = $('register-form').elements;
+      try { clinicPicker = await P.locationPicker($('reg-profile-fields').querySelector('.clinic-map'), {},
+        point => P.fillCityState(point, regForm.city, regForm.state)); }
+      catch (err) { P.errorBox($('reg-profile-fields').querySelector('.clinic-map'), err, () => location.reload()); }
+    }
+
+    // ---------- Dashboard ----------
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('bg-white', t.dataset.tab === tab));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
+      if (tab === 'requests') loadRequests();
+      if (tab === 'patients') loadPatients();
+      if (tab === 'prescriptions') loadAllRx();
+      if (tab === 'schedule') renderSchedule();
+      if (tab === 'profile') { fillProfileForm(); loadPayouts(); if (window.VideoSettings) VideoSettings.mount($('video-settings')).catch(err => P.toast(err.message, 'error')); }
+    }
+
+    function renderBanner() {
+      const b = $('status-banner');
+      const map = {
+        pending: ['bg-amber-50 border-amber-200 text-amber-800', 'Your profile is under review. Patients can book you once it is approved; meanwhile set up your hours and services.'],
+        rejected: ['bg-red-50 border-red-200 text-red-800', `Your profile was not approved${profile.status_reason ? ': ' + profile.status_reason : ''}. Update your details and contact support.`],
+        suspended: ['bg-red-50 border-red-200 text-red-800', `Your profile is suspended${profile.status_reason ? ': ' + profile.status_reason : ''}. Patients can't book you.`],
+      };
+      let entry = map[profile.status];
+      if (!entry && profile.lat == null)
+        entry = ['bg-sky-50 border-sky-200 text-sky-900', `Pin your clinic on the map (Profile tab) so patients within ${config.radius_km} km find you first and prescriptions can reach pharmacies near them.`];
+      b.classList.toggle('hidden', !entry);
+      if (entry) { b.className = `rounded-lg border px-4 py-3 text-sm ${entry[0]}`; b.textContent = entry[1]; }
+    }
+
+    // Changing the doctor type swaps the speciality list
+    document.addEventListener('change', e => {
+      if (!e.target.classList.contains('category-select')) return;
+      e.target.closest('form').querySelector('.spec-boxes').innerHTML = specialityBoxes(e.target.value);
+    });
+
+    async function loadStats() {
+      const [s, earn] = await Promise.all([api('/api/doctor/stats'), api('/api/doctor/earnings')]);
+      const card = (label, value, sub) => `
+        <div class="bg-white rounded-xl border border-slate-200 p-4">
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">${label}</p>
+          <p class="text-2xl font-bold text-slate-900 mt-1 text-right tabular-nums">${value}</p>
+          <p class="text-xs text-slate-500">${sub}</p></div>`;
+      $('stats').innerHTML = card('Today', P.num(s.today), 'appointments') + card('Next 7 days', P.num(s.upcoming_7_days), 'confirmed')
+        + card('Completed', P.num(s.completed_month), 'this month') + card('No-shows', P.num(s.no_show_month), 'this month')
+        + card('Revenue', P.rupees(s.revenue_month), 'paid, this month') + card('Patients', P.num(s.patients), 'all time')
+        + card('Payout due', P.money(earn.due_paise), `online fees · ${P.money(earn.paid_out_paise)} paid out`);
+    }
+
+    function rangeParams() {
+      const t = P.isoDate(P.today());
+      const params = new URLSearchParams();
+      if (range === 'today') { params.set('date_from', t); params.set('date_to', t); }
+      if (range === 'upcoming') params.set('date_from', t);
+      if (range === 'past') params.set('date_to', t);
+      if ($('f-status').value) params.set('status', $('f-status').value);
+      if ($('f-q').value.trim()) params.set('q', $('f-q').value.trim());
+      return params;
+    }
+
+    let apptSeq = 0;
+    async function loadAppointments() {
+      document.querySelectorAll('.range').forEach(b => b.classList.toggle('bg-sky-50', b.dataset.range === range));
+      const seq = ++apptSeq;
+      const [list, risk] = await Promise.all([api(`/api/doctor/appointments?${rangeParams()}`),
+        range === 'past' ? Promise.resolve({}) : api('/api/doctor/visit-risk').catch(() => ({}))]);
+      if (seq !== apptSeq) return;  // a newer filter was chosen while this was loading
+      const riskBadge = a => {
+        const r = risk[a.id];
+        if (!r || a.status !== 'confirmed') return '';
+        if (r.confirmed_by_patient) return ' <span class="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Patient confirmed</span>';
+        return r.band === 'high' ? ` <span class="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900" title="${escapeHtml(r.reasons.join('; '))}">May need a reminder call</span>` : '';
+      };
+      appts = list;
+      if (range === 'past') appts.reverse();
+      $('appt-body').innerHTML = appts.length ? appts.map((a, i) => `
+        <tr class="hover:bg-slate-50 ${a.status === 'cancelled' ? 'opacity-60' : ''}">
+          <td class="num px-3 py-2.5 text-slate-500">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5 whitespace-nowrap">${escapeHtml(P.prettyDate(a.appointment_date))}</td>
+          <td class="txt px-3 py-2.5 whitespace-nowrap">${escapeHtml(P.prettyTime(a.appointment_time))}</td>
+          <td class="txt px-3 py-2.5"><p class="font-medium">${a.visit_type === 'video' ? '🎥 ' : a.visit_type === 'home' ? '🏠 ' : ''}${escapeHtml(a.patient_display || a.patient_name)}</p><p class="text-xs text-slate-500">${escapeHtml(a.patient_phone || '')}</p>
+            ${a.reason ? `<p class="text-xs text-slate-500 italic truncate max-w-[16rem]">“${escapeHtml(a.reason)}”</p>` : ''}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(a.service_name)} <span class="text-xs text-slate-400">${a.duration}m</span></td>
+          <td class="num px-3 py-2.5">${P.rupees(a.fee)}</td>
+          <td class="txt px-3 py-2.5 text-xs">${escapeHtml(P.paymentLabel(a))}</td>
+          <td class="txt px-3 py-2.5">${P.badge(a.status)}${a.message_count ? ` <span class="text-xs text-sky-700">✉ ${a.message_count}</span>` : ''}${riskBadge(a)}</td>
+          <td class="txt px-3 py-2.5"><button data-id="${a.id}" class="text-sky-700 hover:underline font-medium">Open</button></td>
+        </tr>`).join('') : '<tr><td colspan="9" class="px-3 py-8 text-center text-slate-500">No appointments.</td></tr>';
+    }
+
+    async function openDetail(id) {
+      current = await api(`/api/appointments/${id}`);
+      const a = current;
+      const past = P.startOf(a) <= new Date();
+      $('d-ref').textContent = a.reference;
+      $('d-info').innerHTML = `
+        <div class="flex items-center gap-2 mb-1">${P.badge(a.status)} <span class="text-xs text-slate-500">${escapeHtml(P.paymentLabel(a))}</span></div>
+        <p class="text-base font-semibold text-slate-900">${escapeHtml(P.prettyDate(a.appointment_date))}, ${escapeHtml(P.prettyTime(a.appointment_time))}</p>
+        <p>${escapeHtml(a.service_name)} (${a.duration} min) · <strong>${P.rupees(a.total_fee)}</strong>${a.travel_fee ? ` <span class="text-slate-500">(incl. ${P.rupees(a.travel_fee)} travel)</span>` : ''}</p>
+        ${a.visit_type === 'home' ? `<p class="text-amber-800">🏠 Home visit at ${escapeHtml(a.visit_address || '')}</p>` : ''}
+        ${a.visit_type === 'video' ? `<p class="text-emerald-800">🎥 Video consultation · <a href="${a.video_join}" target="_blank" class="font-semibold underline">Join video call</a> <span class="text-xs text-slate-500">(opens 10 min before)</span></p>` : ''}
+        <p class="pt-2"><button class="text-sky-700 hover:underline font-medium" data-patient="${a.patient_id}">${escapeHtml(a.patient_display || a.patient_name)}</button></p>
+        <p><a href="tel:${escapeHtml(a.patient_phone || '')}" class="text-slate-700">${escapeHtml(a.patient_phone || '')}</a> · <a href="mailto:${escapeHtml(a.patient_email)}" class="text-slate-700">${escapeHtml(a.patient_email)}</a></p>
+        ${a.reason ? `<p class="text-slate-600 pt-1">Patient's reason: “${escapeHtml(a.reason)}”</p>` : ''}
+        <div id="d-health" class="pt-2"></div>`;
+      if (window.HealthProfile) HealthProfile.strip(a.patient_id, a.family_member_id).then(html => { const el = $('d-health'); if (el) el.innerHTML = html; });
+      const marks = [];
+      if (['confirmed', 'completed', 'no_show'].includes(a.status) && past) {
+        if (a.status !== 'completed') marks.push('<button data-mark="completed" class="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg">Mark completed</button>');
+        if (a.status !== 'no_show') marks.push('<button data-mark="no_show" class="px-3 py-1.5 bg-orange-500 text-white text-sm rounded-lg">Mark no-show</button>');
+      }
+      if (a.payment_method === 'clinic' && a.payment_status === 'unpaid' && a.status !== 'cancelled')
+        marks.push('<button data-mark="paid" class="px-3 py-1.5 border border-slate-300 text-sm rounded-lg">Mark fee collected</button>');
+      if (['paid', 'refunded', 'not_refundable'].includes(a.payment_status))
+        marks.push(`<a href="/invoice?type=appointment&id=${encodeURIComponent(a.id)}" target="_blank" class="px-3 py-1.5 border border-slate-300 text-sm rounded-lg">Receipt ↗</a>`);
+      $('d-mark').innerHTML = marks.join('');
+      $('d-notes').value = a.doctor_notes || '';
+      $('d-messages').innerHTML = P.messagesHtml(a.messages);
+      $('d-change').classList.toggle('hidden', !(a.status === 'confirmed' && !past));
+      $('r-date').min = P.isoDate(P.today());
+      $('r-date').value = '';
+      $('r-time').innerHTML = '<option value="">Pick a date</option>';
+      $('r-btn').disabled = true;
+      $('action-msg').value = '';
+      P.setMessage($('d-msg'), '', 'info');
+      P.openModal('detail');
+      renderRxSection(a);
+    }
+
+    // ---------- Prescriptions ----------
+    function rxCard(rx) {
+      const orders = rx.orders.filter(o => !['cancelled', 'rejected'].includes(o.status));
+      const dispensed = orders.length ? orders.map(o => `${escapeHtml(o.store_name)} ${P.orderBadge(o.status)}`).join(' ')
+        : (rx.status === 'cancelled' ? 'Cancelled' : 'Not ordered yet');
+      return `<div class="border border-slate-200 rounded-lg p-3 space-y-1">
+        <div class="flex justify-between gap-2"><a href="/prescriptions/${rx.id}" target="_blank" class="font-medium text-sky-700 hover:underline">${escapeHtml(rx.reference)}</a>
+          <span class="text-xs text-slate-500">${escapeHtml(P.prettyDate(rx.created_at.slice(0, 10)))}</span></div>
+        ${(rx.conditions || []).length ? `<p class="text-xs text-slate-500">${rx.conditions.map(c => escapeHtml(c.name)).join(', ')}</p>` : ''}
+        <p class="text-slate-600">${rx.items.map(i => `${escapeHtml(i.name)} × ${i.quantity}${i.is_long_term ? ' <span class="text-[11px] text-emerald-700">(long-term)</span>' : ''}`).join(', ')}</p>
+        ${rx.refill_of ? `<p class="text-xs text-emerald-700">Refill ${rx.refill_number} of ${escapeHtml(rx.refill_of)} (requested by the patient)</p>`
+          : rx.refills && rx.refills.allowed ? `<p class="text-xs text-emerald-700">Refills: ${rx.refills.used} of ${rx.refills.allowed} used</p>` : ''}
+        ${rx.items.length ? `<p class="text-xs text-slate-500">Dispensing: ${dispensed}</p>` : ''}
+        ${(rx.tests || []).length ? `<p class="text-slate-600">Tests: ${rx.tests.map(t => escapeHtml(t.name)).join(', ')}</p>
+          <p class="text-xs text-slate-500">Labs: ${(rx.lab_bookings || []).length ? rx.lab_bookings.map(b => `${escapeHtml(b.lab_name)} · ${escapeHtml(b.status.replace('_', ' '))}${b.record_id ? ` · <a href="/api/records/${b.record_id}/file" target="_blank" class="text-sky-700 underline">report</a>` : ''}`).join('; ') : 'Not booked yet'}</p>` : ''}
+        ${rx.status === 'active' && !orders.length ? `<button type="button" data-rx-cancel="${rx.id}" class="text-xs text-red-600 hover:underline">Cancel prescription</button>` : ''}
+      </div>`;
+    }
+    let rxSeq = 0;
+    async function renderRxSection(a) {
+      const box = $('d-rx');
+      const seq = ++rxSeq;
+      box.innerHTML = '<p class="text-slate-500">Loading prescriptions…</p>';
+      const can = profile.can_prescribe && ['confirmed', 'completed'].includes(a.status);
+      const list = await api(`/api/doctor/prescriptions?appointment_id=${a.id}`);
+      if (seq !== rxSeq || !current || current.id !== a.id) return;  // another appointment was opened meanwhile
+      box.innerHTML = `<div class="flex items-center justify-between"><h3 class="font-semibold text-slate-900">Prescriptions</h3>
+          ${can ? '<button type="button" id="rx-new" class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg">+ Write prescription</button>' : ''}</div>`
+        + (list.length ? list.map(rxCard).join('') : `<p class="text-slate-500">${profile.can_prescribe ? 'None yet.' : 'Your doctor category cannot issue medicine prescriptions on this platform.'}</p>`);
+    }
+    $('d-rx').addEventListener('click', async e => {
+      if (e.target.id === 'rx-new') return openRxWriter();
+      const id = e.target.dataset.rxCancel;
+      if (id && confirm('Cancel this prescription? Pharmacies will stop quoting on it.')) {
+        try { await api(`/api/prescriptions/${id}/cancel`, { method: 'POST' }); renderRxSection(current); }
+        catch (err) { P.toast(err.message, 'error'); }
+      }
+    });
+
+    function rxRow() {
+      const row = document.createElement('div');
+      row.className = 'rx-row grid grid-cols-2 md:grid-cols-12 gap-2 items-end border border-slate-200 rounded-lg p-3 relative';
+      row.innerHTML = `
+        <label class="col-span-2 md:col-span-4 text-slate-600 relative">Medicine<input class="m-search field" autocomplete="off" placeholder="Search catalogue or type a name" />
+          <div class="m-results absolute z-30 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg hidden max-h-56 overflow-y-auto"></div></label>
+        <label class="md:col-span-2 text-slate-600">Dosage<input class="m-dosage field" placeholder="1-0-1" /></label>
+        <label class="md:col-span-2 text-slate-600">Duration<input class="m-duration field" placeholder="5 days" /></label>
+        <label class="md:col-span-1 text-slate-600">Qty<input class="m-qty field" type="number" min="1" max="1000" /></label>
+        <label class="md:col-span-2 flex items-center gap-1 text-xs text-slate-600 pb-3"><input type="checkbox" class="m-sub" checked /> generic OK</label>
+        <button type="button" class="m-remove md:col-span-1 text-red-600 text-xs pb-3">Remove</button>
+        <label class="col-span-2 md:col-span-8 text-slate-600">Instructions<input class="m-instr field" placeholder="After food" maxlength="300" /></label>
+        <label class="md:col-span-2 text-slate-600">Days<input class="m-days field" type="number" min="1" max="365" placeholder="auto" /></label>
+        <label class="md:col-span-2 flex items-center gap-1 text-xs text-slate-600 pb-3"><input type="checkbox" class="m-long" /> Long-term</label>
+        <p class="m-picked col-span-2 md:col-span-12 text-xs text-slate-500"></p>`;
+      let timer;
+      const search = row.querySelector('.m-search'), results = row.querySelector('.m-results');
+      search.addEventListener('input', () => {
+        row.dataset.medicineId = '';
+        row.querySelector('.m-picked').textContent = search.value.trim() ? 'Free text — pharmacies will quote it manually.' : '';
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          const q = search.value.trim();
+          if (q.length < 2) { results.classList.add('hidden'); return; }
+          const meds = await api(`/api/medicines?q=${encodeURIComponent(q)}`);
+          results.meds = meds;
+          results.innerHTML = meds.map((m, i) => `<button type="button" data-i="${i}" class="block w-full text-left px-3 py-2 hover:bg-emerald-50 text-sm">
+            <strong>${escapeHtml(m.name)}</strong> <span class="text-slate-500">${escapeHtml([m.generic_name, m.strength, m.form].filter(Boolean).join(' · '))}</span></button>`).join('')
+            || '<p class="px-3 py-2 text-slate-500 text-sm">Not in catalogue — keep typing to prescribe by name.</p>';
+          results.classList.remove('hidden');
+        }, 250);
+      });
+      results.addEventListener('click', e => {
+        const b = e.target.closest('button[data-i]');
+        if (!b) return;
+        const m = results.meds[b.dataset.i];
+        row.dataset.medicineId = m.id;
+        search.value = m.name;
+        row.querySelector('.m-picked').textContent = `Catalogue: ${[m.generic_name, m.strength, m.form].filter(Boolean).join(' · ')} · pack of ${m.pack_size}`;
+        results.classList.add('hidden');
+      });
+      row.querySelector('.m-remove').addEventListener('click', () => { if ($('rx-rows').children.length > 1) row.remove(); });
+      $('rx-rows').appendChild(row);
+    }
+    // ---------- Diagnosis picker (structured condition list) ----------
+    let conditionList = null, chosenConditions = [];
+    async function loadConditions() { conditionList = conditionList || await api('/api/conditions'); return conditionList; }
+    function renderChips() {
+      $('cond-chips').innerHTML = chosenConditions.map(c => `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs">
+        ${escapeHtml(c.name)} <span class="text-emerald-700">${escapeHtml(c.code)}</span>
+        <button type="button" data-unpick="${c.id}" aria-label="Remove ${escapeHtml(c.name)}" class="ml-0.5 text-emerald-700 hover:text-red-600">✕</button></span>`).join('')
+        || '<span class="text-xs text-slate-400">None picked yet</span>';
+      if (current) scheduleSafety();
+    }
+    $('cond-search').addEventListener('input', async e => {
+      const q = e.target.value.trim().toLowerCase();
+      const box = $('cond-results');
+      if (q.length < 2) { box.classList.add('hidden'); return; }
+      const list = (await loadConditions()).filter(c => !chosenConditions.some(x => x.id === c.id)
+        && (c.name.toLowerCase().includes(q) || c.code.toLowerCase().startsWith(q) || c.care_area.toLowerCase().includes(q))).slice(0, 25);
+      let area = '';
+      box.innerHTML = list.map(c => {
+        const head = c.care_area !== area ? `<p class="px-3 pt-2 text-[11px] uppercase tracking-wide text-slate-400">${escapeHtml(area = c.care_area)}</p>` : '';
+        return head + `<button type="button" data-pick="${c.id}" class="block w-full text-left px-3 py-1.5 hover:bg-emerald-50">${escapeHtml(c.name)} <span class="text-slate-400 text-xs">${escapeHtml(c.code)}</span></button>`;
+      }).join('') || '<p class="px-3 py-2 text-slate-500">No match. Add it under Notes instead.</p>';
+      box.classList.remove('hidden');
+    });
+    $('cond-results').addEventListener('click', e => {
+      const b = e.target.closest('[data-pick]');
+      if (!b) return;
+      if (chosenConditions.length >= 10) return P.toast('Up to 10 diagnoses', 'error');
+      chosenConditions.push(conditionList.find(c => c.id === Number(b.dataset.pick)));
+      renderChips(); renderTests();
+      $('cond-search').value = '';
+      $('cond-results').classList.add('hidden');
+      $('cond-search').focus();
+    });
+    $('cond-chips').addEventListener('click', e => {
+      const b = e.target.closest('[data-unpick]');
+      if (b) { chosenConditions = chosenConditions.filter(c => c.id !== Number(b.dataset.unpick)); renderChips(); }
+    });
+
+    // ---------- Tests picker ----------
+    let chosenTests = [], testTimer;
+    const TEST_SUGGEST = { 'E11.9': ['HbA1c', 'Fasting Blood Sugar'], 'I10': ['Lipid Profile', 'Serum Creatinine', 'ECG'],
+      'E78.5': ['Lipid Profile'], 'E03.9': ['TSH'], 'A90': ['Dengue NS1', 'Complete Blood Count'], 'B54': ['Malaria Antigen'],
+      'A01.0': ['Widal'], 'N39.0': ['Urine Routine'], 'R50.9': ['Complete Blood Count'], 'D50.9': ['Haemoglobin'],
+      'M17.9': ['X-ray Knee'], 'K76.0': ['Liver Function Test'] };
+    function renderTests() {
+      $('test-chips').innerHTML = chosenTests.map((t, i) => `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-900 text-xs">
+        ${escapeHtml(t.name)}<button type="button" data-untest="${i}" aria-label="Remove ${escapeHtml(t.name)}" class="ml-0.5 text-cyan-700 hover:text-red-600">✕</button></span>`).join('')
+        || '<span class="text-xs text-slate-400">No tests</span>';
+      const codes = chosenConditions.map(c => c.code);
+      const ideas = [...new Set(codes.flatMap(c => TEST_SUGGEST[c] || []))].filter(n => !chosenTests.some(t => t.name.startsWith(n)));
+      $('test-suggest').innerHTML = ideas.length ? '<span class="text-xs text-slate-500 self-center">Suggested:</span>' + ideas.map(n =>
+        `<button type="button" data-suggest="${escapeHtml(n)}" class="px-2 py-0.5 rounded-full border border-cyan-300 text-cyan-800 text-xs hover:bg-cyan-50">+ ${escapeHtml(n)}</button>`).join('') : '';
+    }
+    async function addTestByName(q) {
+      const found = (await api(`/api/lab-tests?q=${encodeURIComponent(q)}`))[0];
+      if (found && !chosenTests.some(t => t.test_id === found.id)) chosenTests.push({ test_id: found.id, name: found.name });
+      renderTests();
+    }
+    $('test-search').addEventListener('input', () => {
+      clearTimeout(testTimer);
+      testTimer = setTimeout(async () => {
+        const q = $('test-search').value.trim();
+        const box = $('test-results');
+        if (q.length < 2) { box.classList.add('hidden'); return; }
+        const list = await api(`/api/lab-tests?q=${encodeURIComponent(q)}`);
+        box.tests = list;
+        box.innerHTML = list.map((t, i) => `<button type="button" data-ti="${i}" class="block w-full text-left px-3 py-1.5 hover:bg-cyan-50">${escapeHtml(t.name)}
+          <span class="text-xs text-slate-400">${escapeHtml(t.category)}${t.fasting ? ' · fasting' : ''}</span></button>`).join('')
+          + `<button type="button" data-ti="free" class="block w-full text-left px-3 py-1.5 hover:bg-slate-50 text-slate-600">Add “${escapeHtml(q)}” as written</button>`;
+        box.classList.remove('hidden');
+      }, 200);
+    });
+    $('test-results').addEventListener('click', e => {
+      const b = e.target.closest('[data-ti]');
+      if (!b) return;
+      const box = $('test-results');
+      const t = b.dataset.ti === 'free' ? { test_id: null, name: $('test-search').value.trim() } : { test_id: box.tests[b.dataset.ti].id, name: box.tests[b.dataset.ti].name };
+      if (chosenTests.length >= 20) return P.toast('Up to 20 tests', 'error');
+      if (!chosenTests.some(x => x.name === t.name)) chosenTests.push(t);
+      $('test-search').value = ''; box.classList.add('hidden');
+      renderTests();
+    });
+    $('test-chips').addEventListener('click', e => { const b = e.target.closest('[data-untest]'); if (b) { chosenTests.splice(Number(b.dataset.untest), 1); renderTests(); } });
+    $('test-suggest').addEventListener('click', e => { const b = e.target.closest('[data-suggest]'); if (b) addTestByName(b.dataset.suggest).catch(err => P.toast(err.message, 'error')); });
+
+    function openRxWriter() {
+      $('rx-form').reset();
+      $('rx-rows').innerHTML = '';
+      chosenConditions = [];
+      chosenTests = [];
+      renderChips();
+      renderTests();
+      $('cond-results').classList.add('hidden');
+      $('rx-form').elements.refills_allowed.innerHTML = Array.from({ length: config.max_refills + 1 }, (_, n) =>
+        `<option value="${n}">${n === 0 ? 'No refills' : `${n} refill${n > 1 ? 's' : ''}`}</option>`).join('');
+      loadConditions().catch(() => {});
+      rxRow();
+      $('rx-patient').textContent = current.patient_display || current.patient_name;
+      $('rx-health').innerHTML = '';
+      $('rx-safety').classList.add('hidden');
+      $('rx-safety').innerHTML = '';
+      $('scribe-notes').value = '';
+      $('scribe-msg').textContent = '';
+      $('scribe-box').open = false;
+      $('rx-follow').value = '';
+      $('rx-follow-date-box').classList.add('hidden');
+      if (window.HealthProfile) HealthProfile.strip(current.patient_id, current.family_member_id).then(html => { $('rx-health').innerHTML = html; });
+      if (current.patient_dob) {
+        const dob = new Date(current.patient_dob), now = new Date();
+        $('rx-form').elements.patient_age.value = now.getFullYear() - dob.getFullYear()
+          - ((now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) ? 1 : 0);
+      }
+      if (current.patient_sex) $('rx-form').elements.patient_sex.value = current.patient_sex;
+      $('rx-radius').textContent = config.radius_km;
+      P.setMessage($('rx-msg'), '', 'info');
+      P.openModal('rx-writer');
+    }
+    $('rx-add').addEventListener('click', rxRow);
+    // ---------- AI scribe: notes -> draft (nothing is saved until the doctor issues) ----------
+    function fillRow(row, item) {
+      if (item.medicine_id) row.dataset.medicineId = item.medicine_id;
+      row.querySelector('.m-search').value = item.name || '';
+      row.querySelector('.m-dosage').value = item.dosage || '';
+      row.querySelector('.m-duration').value = item.duration || '';
+      row.querySelector('.m-qty').value = item.quantity || '';
+      row.querySelector('.m-instr').value = item.instructions || '';
+      if (item.duration_days) row.querySelector('.m-days').value = item.duration_days;
+      const conf = item.match && item.match.confidence;
+      const note = item.medicine_id
+        ? `Catalogue: ${[item.name, item.strength, item.form].filter(Boolean).join(' · ')}${item.match && item.match.written_as !== item.name ? ` (written as “${item.match.written_as}”)` : ''}`
+        : 'Free text — pharmacies will quote it manually.';
+      const picked = row.querySelector('.m-picked');
+      picked.textContent = (conf && conf < 0.9 ? '⚠ Check this match. ' : '') + note;
+      picked.classList.toggle('text-amber-700', !!(conf && conf < 0.9));
+      row.classList.add('ring-1', 'ring-sky-200');
+    }
+    $('scribe-go').addEventListener('click', async () => {
+      const notes = $('scribe-notes').value.trim();
+      if (notes.length < 3) return P.toast('Type the notes first', 'error');
+      $('scribe-go').disabled = true;
+      $('scribe-msg').textContent = 'Drafting…';
+      try {
+        const d = await api('/api/doctor/scribe', { method: 'POST', body: { appointment_id: current.id, notes } });
+        if (d.items.length) {
+          $('rx-rows').innerHTML = '';
+          d.items.forEach(item => { rxRow(); fillRow($('rx-rows').lastElementChild, item); });
+        }
+        await loadConditions().catch(() => {});
+        d.conditions.forEach(c => { if (!chosenConditions.some(x => x.id === c.id) && chosenConditions.length < 10) chosenConditions.push(c); });
+        d.tests.forEach(t => { if (!chosenTests.some(x => x.name === t.name)) chosenTests.push(t); });
+        renderChips(); renderTests();
+        const f = $('rx-form').elements;
+        if (d.advice && !f.advice.value.trim()) f.advice.value = d.advice;
+        if (d.diagnosis_note && !f.diagnosis.value.trim()) f.diagnosis.value = d.diagnosis_note;
+        if (d.follow_up_in_days) {
+          const opt = [...$('rx-follow').options].find(o => Number(o.value) === d.follow_up_in_days);
+          if (opt) $('rx-follow').value = opt.value;
+          else { $('rx-follow').value = 'date'; $('rx-follow-date-box').classList.remove('hidden');
+                 $('rx-follow-date').value = P.isoDate(P.addDays(P.today(), d.follow_up_in_days)); }
+        }
+        const skipped = d.unparsed_lines.length ? ` Not understood: ${d.unparsed_lines.join('; ')}.` : '';
+        $('scribe-msg').textContent = `Draft ready (${d.engine === 'claude' ? 'AI' : 'built-in'}): ${d.items.length} medicines, ${d.tests.length} tests. Review every line.${skipped}`;
+        scheduleSafety();
+      } catch (err) { $('scribe-msg').textContent = err.message; }
+      finally { $('scribe-go').disabled = false; }
+    });
+    // Dictation where the browser supports it (Chrome / Edge / Android); en-IN understands Indian English and Hinglish
+    (function setUpDictation() {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Recognition) return;
+      const rec = new Recognition();
+      rec.lang = 'en-IN'; rec.continuous = true; rec.interimResults = false;
+      let on = false;
+      rec.onresult = e => {
+        const text = [...e.results].slice(e.resultIndex).map(r => r[0].transcript).join(' ');
+        $('scribe-notes').value = ($('scribe-notes').value.trim() + '\n' + text.trim()).trim();
+      };
+      rec.onend = () => { on = false; $('scribe-mic').textContent = 'Dictate'; $('scribe-mic').setAttribute('aria-pressed', 'false'); };
+      $('scribe-mic').classList.remove('hidden');
+      $('scribe-mic').addEventListener('click', () => {
+        if (on) return rec.stop();
+        try { rec.start(); on = true; $('scribe-mic').textContent = 'Stop dictation'; $('scribe-mic').setAttribute('aria-pressed', 'true'); }
+        catch (err) { P.toast('Microphone not available', 'error'); }
+      });
+    })();
+    // ---------- Safety check while writing (interactions, duplicates, allergies, age, pregnancy, dose) ----------
+    var safetyTimer = null;
+    function rxItems() {
+      return [...document.querySelectorAll('.rx-row')].filter(r => r.querySelector('.m-search').value.trim()).map(r => ({
+        medicine_id: r.dataset.medicineId ? Number(r.dataset.medicineId) : null,
+        name: r.querySelector('.m-search').value.trim() || null,
+        dosage: r.querySelector('.m-dosage').value.trim() || null, duration: r.querySelector('.m-duration').value.trim() || null,
+        quantity: Number(r.querySelector('.m-qty').value), instructions: r.querySelector('.m-instr').value.trim() || null,
+        allow_substitute: r.querySelector('.m-sub').checked, is_long_term: r.querySelector('.m-long').checked,
+        duration_days: r.querySelector('.m-days').value ? Number(r.querySelector('.m-days').value) : null }));
+    }
+    const SAFETY_STYLE = { major: 'border-red-300 bg-red-50 text-red-900', moderate: 'border-amber-300 bg-amber-50 text-amber-900',
+                           info: 'border-slate-200 bg-slate-50 text-slate-700' };
+    function renderSafety(result) {
+      const box = $('rx-safety');
+      const acked = new Set([...box.querySelectorAll('[data-ack]:checked')].map(c => c.dataset.ack));
+      const alerts = result.alerts || [];
+      const taking = (result.current_medicines || []).map(m => escapeHtml([m.name, m.strength].filter(Boolean).join(' '))).join(', ');
+      box.innerHTML = alerts.map(a => `<div class="rounded-lg border px-3 py-2 ${SAFETY_STYLE[a.severity]}" role="${a.severity === 'major' ? 'alert' : 'status'}">
+          <p><span class="font-semibold uppercase text-[11px] tracking-wide mr-1">${a.severity === 'info' ? 'Note' : escapeHtml(a.severity)}</span>${escapeHtml(a.message)}</p>
+          ${a.severity === 'major' ? `<label class="mt-1 flex items-center gap-2 text-xs font-medium"><input type="checkbox" data-ack="${escapeHtml(a.code)}" ${acked.has(a.code) ? 'checked' : ''} /> I have reviewed this and still want to prescribe</label>` : ''}
+        </div>`).join('') + (taking ? `<p class="text-xs text-slate-500">Checked against current medicines: ${taking}</p>` : '');
+      box.classList.toggle('hidden', !alerts.length && !taking);
+    }
+    async function runSafety() {
+      if (!current) return;
+      const f = $('rx-form').elements;
+      try {
+        renderSafety(await api('/api/doctor/rx-check', { method: 'POST', body: {
+          appointment_id: current.id, items: rxItems().map(i => ({ medicine_id: i.medicine_id, name: i.name, dosage: i.dosage })),
+          patient_age: f.patient_age.value ? Number(f.patient_age.value) : null, pregnancy: f.pregnancy.value || null,
+          condition_ids: chosenConditions.map(c => c.id) } }));
+      } catch (err) { /* the same check runs again when issuing */ }
+    }
+    function scheduleSafety() { clearTimeout(safetyTimer); safetyTimer = setTimeout(runSafety, 600); }
+    $('rx-rows').addEventListener('input', scheduleSafety);
+    $('rx-rows').addEventListener('click', e => { if (e.target.closest('.m-results button, .m-remove')) scheduleSafety(); });
+    ['patient_age', 'pregnancy'].forEach(n => $('rx-form').elements[n].addEventListener('change', scheduleSafety));
+    $('rx-follow').addEventListener('change', e => {
+      $('rx-follow-date-box').classList.toggle('hidden', e.target.value !== 'date');
+      $('rx-follow-date').min = P.isoDate(P.addDays(P.today(), 1));
+    });
+    function followUpDate() {
+      const v = $('rx-follow').value;
+      if (!v) return null;
+      if (v === 'date') return $('rx-follow-date').value || null;
+      return P.isoDate(P.addDays(P.today(), Number(v)));
+    }
+    $('rx-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      const items = rxItems();
+      const acknowledged = [...$('rx-safety').querySelectorAll('[data-ack]:checked')].map(c => c.dataset.ack);
+      try {
+        const rx = await api(`/api/appointments/${current.id}/prescriptions`, { method: 'POST', body: {
+          patient_age: f.patient_age.value ? Number(f.patient_age.value) : null, patient_sex: f.patient_sex.value || null,
+          diagnosis: f.diagnosis.value.trim() || null, advice: f.advice.value.trim() || null, items,
+          condition_ids: chosenConditions.map(c => c.id), refills_allowed: Number(f.refills_allowed.value || 0),
+          tests: chosenTests.map(t => ({ test_id: t.test_id, name: t.test_id ? null : t.name })), follow_up_on: followUpDate(),
+          pregnancy: f.pregnancy.value || null, acknowledged_alerts: acknowledged } });
+        P.closeModal('rx-writer');
+        P.toast(`Prescription ${rx.reference} issued. Sent to ${rx.pharmacies_notified} pharmacies and ${rx.labs_notified} labs near the patient.`, 'success');
+        renderRxSection(current);
+      } catch (err) {
+        if (err.status === 409 && err.detail && err.detail.alerts) {
+          renderSafety({ alerts: err.detail.alerts });
+          $('rx-safety').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        P.setMessage($('rx-msg'), err.message, 'error');
+      }
+    });
+
+    async function afterChange(message) {
+      P.toast(message, 'success');
+      await openDetail(current.id);
+      loadAppointments();
+      loadStats();
+    }
+
+    $('appt-body').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-id]');
+      if (btn) openDetail(btn.dataset.id).catch(err => P.toast(err.message, 'error'));
+    });
+    $('d-mark').addEventListener('click', async e => {
+      const mark = e.target.dataset.mark;
+      if (!mark) return;
+      const body = mark === 'paid' ? { payment_status: 'paid' } : { status: mark };
+      try { await api(`/api/appointments/${current.id}`, { method: 'PATCH', body }); afterChange('Updated'); }
+      catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+    $('save-notes').addEventListener('click', async () => {
+      try { await api(`/api/appointments/${current.id}`, { method: 'PATCH', body: { doctor_notes: $('d-notes').value } }); P.toast('Notes saved', 'success'); }
+      catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+    $('msg-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = $('msg-body').value.trim();
+      if (!body) return;
+      try { await api(`/api/appointments/${current.id}/messages`, { method: 'POST', body: { body } }); $('msg-body').value = ''; afterChange('Message sent to patient'); }
+      catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+    $('r-date').addEventListener('change', e => { $('r-btn').disabled = true; if (e.target.value) P.loadRescheduleTimes(current, e.target.value, $('r-time')); });
+    $('r-time').addEventListener('change', e => { $('r-btn').disabled = !e.target.value; });
+    $('r-btn').addEventListener('click', async () => {
+      try {
+        await api(`/api/appointments/${current.id}/reschedule`, { method: 'POST', body: {
+          appointment_date: $('r-date').value, appointment_time: $('r-time').value, message: $('action-msg').value.trim() || null } });
+        afterChange('Rescheduled. The patient has been emailed.');
+      } catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+    $('c-btn').addEventListener('click', async () => {
+      if (!confirm('Cancel this appointment? Online payments are refunded in full.')) return;
+      try {
+        await api(`/api/appointments/${current.id}/cancel`, { method: 'POST', body: { message: $('action-msg').value.trim() || null } });
+        afterChange('Cancelled. The patient has been emailed.');
+      } catch (err) { P.setMessage($('d-msg'), err.message, 'error'); }
+    });
+
+    // ---------- Patients ----------
+    async function loadPatients() {
+      const q = $('p-q').value.trim();
+      const list = await api(`/api/doctor/patients${q ? '?q=' + encodeURIComponent(q) : ''}`);
+      $('patient-body').innerHTML = list.length ? list.map((p, i) => `
+        <tr class="hover:bg-slate-50 cursor-pointer" data-patient="${p.id}">
+          <td class="num px-3 py-2.5 text-slate-500">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5 font-medium text-sky-700">${escapeHtml(p.name)}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(p.phone || '')}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(p.email)}</td>
+          <td class="num px-3 py-2.5">${P.num(p.visits)}</td>
+          <td class="num px-3 py-2.5">${P.num(p.completed)}</td>
+          <td class="txt px-3 py-2.5">${p.last_date ? escapeHtml(P.prettyDate(p.last_date)) : '—'}</td>
+        </tr>`).join('') : '<tr><td colspan="7" class="px-3 py-8 text-center text-slate-500">No patients yet.</td></tr>';
+    }
+    let pTimer;
+    $('p-q').addEventListener('input', () => { clearTimeout(pTimer); pTimer = setTimeout(loadPatients, 250); });
+
+    const FLAG = { high: 'text-red-700 font-semibold', low: 'text-amber-700 font-semibold', normal: 'text-emerald-700' };
+    function recordsHtml(rec) {
+      const reports = rec.records.length ? P.table([
+        { label: 'Date', render: r => `<span class="whitespace-nowrap">${escapeHtml(P.prettyDate(r.record_date))}</span>` },
+        { label: 'Report', render: r => `<p class="font-medium">${escapeHtml(r.title)}</p><p class="text-xs text-slate-500">${escapeHtml(r.lab_name || (r.uploader_role === 'patient' ? 'Uploaded by patient' : ''))}</p>` },
+        { label: 'Key results', render: r => r.values.map(x => `<span class="${FLAG[x.flag] || ''}">${escapeHtml(x.name)} ${escapeHtml(x.value_num ?? x.value_text)} ${escapeHtml(x.unit || '')}</span>`).join('<br>') || '—' },
+        { label: '', render: r => r.has_file ? `<a href="${r.file_url}" target="_blank" class="text-xs text-sky-700 hover:underline">Open ↗</a>` : '' },
+      ], rec.records) : '<p class="text-slate-500">No reports shared with you.</p>';
+      const trends = rec.trends.filter(t => t.points.length > 1).map(t => `<p><strong>${escapeHtml(t.name)}</strong>: ${t.points.map(p => `<span class="${FLAG[p.flag] || ''}">${p.value}</span>`).join(' → ')} ${escapeHtml(t.unit || '')}</p>`).join('');
+      const meds = rec.medicines.length ? rec.medicines.map(m => `${escapeHtml(m.name)}${m.dosage ? ' · ' + escapeHtml(m.dosage) : ''}${m.prescribed_by ? ` <span class="text-xs text-slate-500">(${escapeHtml(m.prescribed_by)})</span>` : ''}`).join('<br>') : '<span class="text-slate-500">None listed</span>';
+      return `<h3 class="font-semibold text-slate-900">Reports &amp; test results</h3>${reports}${trends ? `<div class="text-xs space-y-1 bg-slate-50 rounded-lg p-3">${trends}</div>` : ''}
+        <h3 class="font-semibold text-slate-900 pt-3">Other medicines the patient takes</h3><p>${meds}</p>`;
+    }
+    function adherenceHtml(a) {
+      if (!a || !a.tracking || !a.due) return '';
+      return `<h3 class="font-semibold text-slate-900 pt-3">Medicines taken (last 30 days, as the patient records them)</h3>
+        <p><strong class="text-lg tabular-nums">${a.percent}%</strong> of ${a.due.toLocaleString('en-IN')} doses</p>` + P.table([
+        { label: 'Medicine', render: m => escapeHtml(m.name) + (m.for_name ? ` <span class="text-xs text-violet-700">for ${escapeHtml(m.for_name)}</span>` : '') },
+        { label: 'Doses due', key: 'due', num: true },
+        { label: 'Taken', key: 'taken', num: true },
+        { label: 'Taken %', render: m => m.percent == null ? '—' : `${m.percent}%`, num: true },
+      ], a.medicines);
+    }
+    async function openHistory(patientId) {
+      const [data, rxs, rec, adh, health] = await Promise.all([api(`/api/doctor/patients/${patientId}`), api(`/api/doctor/prescriptions?patient_id=${patientId}`),
+        api(`/api/doctor/patients/${patientId}/records`).catch(() => ({ records: [], trends: [], medicines: [] })),
+        api(`/api/doctor/patients/${patientId}/adherence`).catch(() => null),
+        window.HealthProfile ? HealthProfile.strip(patientId) : '']);
+      $('h-title').textContent = `${data.patient.name} · ${data.patient.phone || ''}`;
+      $('h-body').innerHTML = health + adherenceHtml(adh) + recordsHtml(rec) + (rxs.length ? `<h3 class="font-semibold text-slate-900 pt-3">Prescriptions</h3>${rxs.map(rxCard).join('')}<h3 class="font-semibold text-slate-900 pt-3">Visits</h3>` : '<h3 class="font-semibold text-slate-900 pt-3">Visits</h3>')
+        + data.appointments.map(a => `
+        <button data-id="${a.id}" class="w-full text-left border border-slate-200 rounded-lg p-3 hover:bg-slate-50">
+          <div class="flex justify-between gap-2"><span class="font-medium">${escapeHtml(P.prettyDate(a.appointment_date))}, ${escapeHtml(P.prettyTime(a.appointment_time))}</span>${P.badge(a.status)}</div>
+          <p class="text-slate-600">${escapeHtml(a.service_name)} · ${P.rupees(a.fee)}</p>
+          ${a.doctor_notes ? `<p class="text-xs text-slate-500 mt-1 whitespace-pre-wrap">Notes: ${escapeHtml(a.doctor_notes)}</p>` : ''}
+        </button>`).join('');
+      P.openModal('history');
+    }
+    document.addEventListener('click', e => {
+      const p = e.target.closest('[data-patient]');
+      if (p) { P.closeModal('detail'); openHistory(p.dataset.patient).catch(err => P.toast(err.message, 'error')); }
+    });
+    $('h-body').addEventListener('click', e => {
+      const b = e.target.closest('button[data-id]');
+      if (b) { P.closeModal('history'); openDetail(b.dataset.id); }
+    });
+
+    // ---------- Schedule ----------
+    function hoursRow(day, start = '10:00', end = '13:00') {
+      return `<div class="flex items-center gap-2" data-day="${day}">
+        <input type="time" value="${start}" class="h-start px-2 py-1 border border-slate-300 rounded" />
+        <span>to</span><input type="time" value="${end}" class="h-end px-2 py-1 border border-slate-300 rounded" />
+        <button type="button" class="h-remove text-red-600 hover:underline text-xs">Remove</button></div>`;
+    }
+    function renderSchedule() {
+      $('hours-editor').innerHTML = WEEKDAYS.map((name, d) => `
+        <div class="border-b border-slate-100 pb-3">
+          <div class="flex items-center justify-between mb-1"><span class="font-medium">${name}</span>
+            <button type="button" data-add="${d}" class="text-sky-700 hover:underline text-xs">+ Add time range</button></div>
+          <div class="space-y-1" id="day-${d}">${profile.hours.filter(h => h.weekday === d).map(h => hoursRow(d, h.start_time, h.end_time)).join('') || '<p class="text-slate-400 text-xs empty">Closed</p>'}</div>
+        </div>`).join('');
+      $('services').innerHTML = profile.services.map(s => `
+        <form data-service="${s.id}" class="grid grid-cols-[1fr_4.5rem_6rem_auto_auto] gap-2 items-center">
+          <input name="name" value="${escapeHtml(s.name)}" class="px-2 py-1.5 border border-slate-300 rounded" />
+          <input name="duration" type="number" min="10" max="240" value="${s.duration}" class="px-2 py-1.5 border border-slate-300 rounded text-right" title="minutes" />
+          <input name="fee" type="number" min="0" value="${s.fee}" class="px-2 py-1.5 border border-slate-300 rounded text-right" title="fee ₹" />
+          <label class="flex items-center gap-1 text-xs"><input name="active" type="checkbox" ${s.active ? 'checked' : ''} /> Active</label>
+          <button class="px-2 py-1.5 bg-slate-800 text-white rounded text-xs">Save</button>
+        </form>`).join('');
+      loadBlocks();
+    }
+    $('hours-editor').addEventListener('click', e => {
+      if (e.target.dataset.add !== undefined) {
+        const box = $(`day-${e.target.dataset.add}`);
+        box.querySelector('.empty')?.remove();
+        box.insertAdjacentHTML('beforeend', hoursRow(e.target.dataset.add));
+      }
+      if (e.target.classList.contains('h-remove')) e.target.parentElement.remove();
+    });
+    $('save-hours').addEventListener('click', async () => {
+      const hours = [...document.querySelectorAll('[data-day]')].map(r => ({
+        weekday: Number(r.dataset.day), start_time: r.querySelector('.h-start').value, end_time: r.querySelector('.h-end').value }));
+      try { profile.hours = await api('/api/doctor/hours', { method: 'PUT', body: hours }); renderSchedule(); P.toast('Hours saved', 'success'); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('services').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        profile.services = await api(`/api/doctor/services/${e.target.dataset.service}`, { method: 'PUT', body: {
+          name: f.name.value, duration: Number(f.duration.value), fee: Number(f.fee.value), active: f.active.checked } });
+        renderSchedule(); P.toast('Service saved', 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('service-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        profile.services = await api('/api/doctor/services', { method: 'POST', body: {
+          name: f.name.value, duration: Number(f.duration.value), fee: Number(f.fee.value) } });
+        e.target.reset(); renderSchedule(); P.toast('Service added', 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    async function loadBlocks() {
+      const blocks = await api('/api/doctor/blocks');
+      $('blocks').innerHTML = blocks.length ? blocks.map(b => `
+        <li class="py-2 flex justify-between gap-2"><span><strong>${escapeHtml(P.prettyDate(b.block_date))}</strong> ·
+          ${b.start_time ? `${escapeHtml(P.prettyTime(b.start_time))}–${escapeHtml(P.prettyTime(b.end_time))}` : 'All day'}
+          ${b.reason ? `· <span class="text-slate-500">${escapeHtml(b.reason)}</span>` : ''}</span>
+          <button data-block="${b.id}" class="text-red-600 hover:underline text-xs">Remove</button></li>`).join('')
+        : '<li class="py-2 text-slate-500">No upcoming time off.</li>';
+    }
+    $('blocks').addEventListener('click', async e => {
+      if (!e.target.dataset.block) return;
+      await api(`/api/doctor/blocks/${e.target.dataset.block}`, { method: 'DELETE' });
+      loadBlocks();
+    });
+    $('block-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        const res = await api('/api/doctor/blocks', { method: 'POST', body: {
+          block_date: f.block_date.value, start_time: f.start_time.value || null, end_time: f.end_time.value || null,
+          reason: f.reason.value || null, cancel_conflicts: f.cancel_conflicts.checked } });
+        P.setMessage($('block-msg'), res.cancelled ? `Blocked. ${res.cancelled} booking(s) cancelled and the patients emailed.` : res.conflicts.length
+          ? `Blocked. ${res.conflicts.length} existing appointment(s) fall in this time — open them under Appointments to reschedule or cancel: `
+            + res.conflicts.map(c => `${P.prettyTime(c.appointment_time)} ${c.patient_name}`).join(', ')
+          : 'Time blocked.', res.conflicts.length ? 'error' : 'success');
+        e.target.reset(); loadBlocks();
+      } catch (err) { P.setMessage($('block-msg'), err.message, 'error'); }
+    });
+
+    // ---------- Profile ----------
+    async function fillProfileForm() {
+      const form = $('profile-form');
+      const f = form.elements;
+      f.name.value = profile.name; f.phone.value = profile.phone || '';
+      f.category.value = profile.category;
+      form.querySelector('.spec-boxes').innerHTML = specialityBoxes(profile.category, profile.specialities);
+      if (!clinicPicker) clinicPicker = await P.locationPicker(form.querySelector('.clinic-map'), { lat: profile.lat, lng: profile.lng },
+        point => P.fillCityState(point, f.city, f.state));
+      f.city.addEventListener('input', () => { f.city.dataset.touched = '1'; });
+      f.state.addEventListener('change', () => { f.state.dataset.touched = '1'; });
+      $('set-meetings').checked = profile.accept_mr_meetings;
+      $('set-insights').checked = profile.share_insights;
+      ['qualification', 'registration_no', 'registration_council', 'experience_years', 'bio', 'clinic_name', 'address', 'city', 'state', 'pincode', 'slot_minutes']
+        .forEach(k => { f[k].value = profile[k] ?? ''; });
+      form.querySelectorAll('input[name=specialities]').forEach(c => { c.checked = profile.specialities.includes(c.value); });
+      f.accepts_clinic_payment.checked = profile.accepts_clinic_payment;
+      f.accepts_online_payment.checked = profile.accepts_online_payment_setting;
+      f.offers_home_visits.checked = profile.offers_home_visits;
+      f.home_visit_radius_km.value = profile.home_visit_radius_km || 5;
+      f.home_visit_fee.value = profile.home_visit_fee ?? '';
+    }
+    $('profile-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        const res = await api('/api/doctor/profile', { method: 'PUT', body: { name: f.name.value, phone: f.phone.value, ...readProfileForm(e.target) } });
+        profile = { ...profile, ...res };
+        $('welcome').textContent = `Welcome, ${profile.name}`;
+        P.me(true).then(P.renderNav);
+        renderBanner();
+        P.toast(res.reverification_required ? 'Saved. Your profile will be re-verified before going live again.' : 'Profile saved', 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('password-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      try { await api('/api/auth/change-password', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); e.target.reset(); P.toast('Password changed', 'success'); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Requests inbox ----------
+    const MR_STATUS = { pending: ['Waiting for you', 'bg-amber-100 text-amber-800'], accepted: ['Accepted', 'bg-sky-100 text-sky-800'],
+      declined: ['Declined', 'bg-slate-200 text-slate-600'], completed: ['Met', 'bg-emerald-100 text-emerald-800'],
+      cancelled: ['Cancelled', 'bg-slate-200 text-slate-600'] };
+    const pill = ([l, c]) => `<span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${c}">${escapeHtml(l)}</span>`;
+    const when = s => new Date(s).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+    let inbox = null;
+    async function loadRequests() {
+      inbox = await api('/api/doctor/requests');
+      updateRequestCount(inbox);
+      const empty = t => `<p class="text-slate-500">${t}</p>`;
+      $('req-home').innerHTML = inbox.home_visits.length ? inbox.home_visits.map(h => `<form data-home="${h.id}" class="rounded-xl border ${h.status === 'requested' ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200'} p-3 grid sm:grid-cols-6 gap-2 items-end">
+          <div class="sm:col-span-6 flex flex-wrap justify-between gap-2">
+            <p><strong>${escapeHtml(h.patient_name)}</strong> · ${escapeHtml(h.patient_phone || '')} · ${escapeHtml(h.service_name)}</p>
+            <span class="text-xs ${h.status === 'requested' ? 'text-amber-800 font-semibold' : 'text-violet-700'}">${h.status === 'requested' ? 'Needs your charges' : 'Sent · waiting for the patient'}</span></div>
+          <p class="sm:col-span-6 text-slate-600">📍 ${escapeHtml(h.visit_address || '')}${h.reason ? ` · “${escapeHtml(h.reason)}”` : ''}</p>
+          <label class="text-xs text-slate-600">Visit fee (₹)<input name="fee" type="number" min="0" required value="${h.fee}" class="field" /></label>
+          <label class="text-xs text-slate-600">Travel (₹)<input name="travel_fee" type="number" min="0" value="${h.travel_fee || 0}" class="field" /></label>
+          <label class="text-xs text-slate-600">Date<input name="appointment_date" type="date" required value="${h.appointment_date}" min="${P.isoDate(P.today())}" class="field" /></label>
+          <label class="text-xs text-slate-600">Time<input name="appointment_time" type="time" required value="${h.appointment_time}" class="field" /></label>
+          <label class="text-xs text-slate-600">Duration (min)<input name="duration" type="number" min="10" max="480" step="5" value="${h.duration}" class="field" /></label>
+          <div class="flex gap-2"><button class="px-3 py-2 bg-amber-600 text-white rounded-lg text-xs font-semibold">${h.status === 'requested' ? 'Send charges' : 'Update'}</button>
+            <button type="button" data-home-decline="${h.id}" class="px-3 py-2 border border-slate-300 rounded-lg text-xs">Decline</button></div>
+          <label class="sm:col-span-6 text-xs text-slate-600">Note for the patient (optional)<input name="note" maxlength="1000" placeholder="e.g. Please keep your recent reports ready" class="field" /></label>
+        </form>`).join('') : '<p class="text-slate-500">No home-visit requests.</p>';
+      $('req-bookings').innerHTML = inbox.new_bookings.map(b => `<button type="button" data-open-appt="${b.id}" class="w-full text-left rounded-lg border border-slate-200 p-2 hover:border-sky-300">
+          <p class="font-medium">${escapeHtml(b.patient_name)} ${b.previous_visits ? `<span class="text-xs text-violet-700">· revisit (${b.previous_visits} before)</span>` : '<span class="text-xs text-slate-500">· new patient</span>'}</p>
+          <p class="text-xs text-slate-500">${escapeHtml(P.prettyDate(b.appointment_date))} · ${escapeHtml(P.prettyTime(b.appointment_time))} · ${escapeHtml(b.service_name)}</p>
+          ${b.reason ? `<p class="text-xs text-slate-600 truncate">“${escapeHtml(b.reason)}”</p>` : ''}</button>`).join('') || empty('No new bookings.');
+      $('req-messages').innerHTML = inbox.awaiting_reply.map(m => `<button type="button" data-open-appt="${m.id}" class="w-full text-left rounded-lg border border-slate-200 p-2 hover:border-sky-300">
+          <p class="font-medium">${escapeHtml(m.patient_name)} <span class="text-xs text-slate-500">· ${escapeHtml(when(m.created_at))}</span></p>
+          <p class="text-xs text-slate-600 line-clamp-2">${escapeHtml(m.body)}</p></button>`).join('') || empty('All caught up.');
+      $('req-refills').innerHTML = inbox.refills.map(r => `<div class="rounded-lg border border-slate-200 p-2">
+          <p class="font-medium">${escapeHtml(r.patient_name)}</p>
+          <p class="text-xs text-slate-500"><a href="/prescriptions/${r.id}" target="_blank" class="text-sky-700 hover:underline">${escapeHtml(r.reference)}</a> · refill ${r.refill_number} of ${r.refills_allowed} for ${escapeHtml(r.refill_of)} · ${escapeHtml(P.prettyDate(r.created_at.slice(0, 10)))}</p></div>`).join('') || empty('No refills used.');
+      $('req-mr-note').textContent = inbox.settings.accept_mr_meetings
+        ? `You're accepting meeting requests.${inbox.settings.share_insights ? ' Pharma companies see your name with your prescribing counts.' : ' Pharma companies see your prescribing counts under an anonymous code.'}`
+        : 'You are not accepting new MR meeting requests. Turn it on in Profile.';
+      $('req-mr').innerHTML = P.table([
+        { label: 'Received', render: r => `<span class="whitespace-nowrap">${escapeHtml(P.prettyDate(r.created_at.slice(0, 10)))}</span>` },
+        { label: 'Representative', render: r => `<p class="font-medium">${escapeHtml(r.mr_name)}</p><p class="text-xs text-slate-500">${escapeHtml(r.company_name)}${r.division_name ? ' · ' + escapeHtml(r.division_name) : ''}</p>` },
+        { label: 'Purpose', render: r => `<p>${escapeHtml(r.purpose)}</p>${r.products ? `<p class="text-xs text-slate-500">Products: ${escapeHtml(r.products)}</p>` : ''}` },
+        { label: 'Preferred', render: r => escapeHtml([r.preferred_date && P.prettyDate(r.preferred_date), r.preferred_time && P.prettyTime(r.preferred_time)].filter(Boolean).join(' · ') || 'Any time') },
+        { label: 'Status', render: r => pill(MR_STATUS[r.status]) + (r.scheduled_for ? `<p class="text-xs text-slate-600 mt-1">${escapeHtml(when(r.scheduled_for))}</p>` : '') + (r.doctor_note ? `<p class="text-xs text-slate-500">${escapeHtml(r.doctor_note)}</p>` : '') },
+        { label: 'Action', render: r => r.status === 'pending'
+            ? `<div class="flex flex-col gap-1 min-w-[13rem]"><input type="datetime-local" data-when="${r.id}" class="px-2 py-1 border border-slate-300 rounded text-xs" value="${r.preferred_date ? `${r.preferred_date}T${r.preferred_time || '17:00'}` : ''}" aria-label="Meeting time" />
+               <div class="flex gap-1"><button type="button" data-mr="accept" data-id="${r.id}" class="px-2 py-1 bg-emerald-600 text-white rounded text-xs font-semibold">Accept</button>
+               <button type="button" data-mr="decline" data-id="${r.id}" class="px-2 py-1 border border-slate-300 rounded text-xs">Decline</button></div></div>`
+            : r.status === 'accepted' ? `<button type="button" data-mr="done" data-id="${r.id}" class="px-2 py-1 border border-emerald-300 text-emerald-700 rounded text-xs">Mark as met</button>` : '' },
+      ], inbox.mr_requests, { empty: 'No meeting requests yet.' });
+    }
+    function updateRequestCount(data) {
+      const n = data.counts.mr_pending + data.counts.awaiting_reply + (data.counts.home_visits || 0);
+      $('req-count').textContent = n;
+      $('req-count').classList.toggle('hidden', !n);
+    }
+    $('req-home').addEventListener('submit', async e => {
+      const form = e.target.closest('form[data-home]');
+      if (!form) return;
+      e.preventDefault();
+      const f = form.elements;
+      try {
+        const res = await api(`/api/doctor/appointments/${form.dataset.home}/home-visit`, { method: 'POST', body: {
+          fee: Number(f.fee.value), travel_fee: Number(f.travel_fee.value || 0), appointment_date: f.appointment_date.value,
+          appointment_time: f.appointment_time.value, duration: Number(f.duration.value) || null, note: f.note.value.trim() || null } });
+        P.toast(`Charges sent: ${P.rupees(res.total_fee)}. The patient will accept or decline.`, 'success');
+        loadRequests();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('req-home').addEventListener('click', async e => {
+      const b = e.target.closest('[data-home-decline]');
+      if (!b) return;
+      const message = prompt('Reason for the patient (optional):') || "Sorry, I can't do this home visit.";
+      try { await api(`/api/appointments/${b.dataset.homeDecline}/cancel`, { method: 'POST', body: { message } }); P.toast('Request declined', 'success'); loadRequests(); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('req-mr').addEventListener('click', async e => {
+      const b = e.target.closest('[data-mr]');
+      if (!b) return;
+      const action = b.dataset.mr, id = b.dataset.id;
+      const body = {};
+      if (action === 'accept') {
+        body.scheduled_for = (document.querySelector(`[data-when="${id}"]`) || {}).value || null;
+        if (!body.scheduled_for) return P.toast('Pick a meeting date and time first', 'error');
+      }
+      if (action === 'decline') body.note = prompt('Optional note for the representative:') || null;
+      try {
+        await api(`/api/doctor/mr-requests/${id}/${action}`, { method: 'POST', body });
+        P.toast({ accept: 'Meeting accepted. The representative has been emailed.', decline: 'Request declined', done: 'Marked as met' }[action], 'success');
+        loadRequests();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    document.addEventListener('click', e => {
+      const a = e.target.closest('[data-open-appt]');
+      if (a) openDetail(a.dataset.openAppt).catch(err => P.toast(err.message, 'error'));
+      const g = e.target.closest('[data-goto-tab]');
+      if (g) showTab(g.dataset.gotoTab);
+    });
+    async function saveSettings() {
+      try {
+        const res = await api('/api/doctor/settings', { method: 'PUT', body: { share_insights: $('set-insights').checked, accept_mr_meetings: $('set-meetings').checked } });
+        profile = { ...profile, ...res };
+        P.toast(res.share_insights ? 'Saved. Pharma companies see your name with your prescribing counts.' : 'Saved. Pharma companies see your counts only under an anonymous code.', 'success');
+      } catch (err) {
+        $('set-insights').checked = profile.share_insights; $('set-meetings').checked = profile.accept_mr_meetings;
+        P.toast(err.message, 'error');
+      }
+    }
+    $('set-insights').addEventListener('change', saveSettings);
+    $('set-meetings').addEventListener('change', saveSettings);
+
+    // ---------- All prescriptions ----------
+    async function loadAllRx() {
+      const list = await api('/api/doctor/prescriptions');
+      $('all-rx').innerHTML = list.length ? list.map(rx => `<div class="bg-white rounded-xl border border-slate-200">
+          <p class="px-3 pt-3 font-medium">${escapeHtml(rx.patient ? rx.patient.name : '')}</p>${rxCard(rx)}</div>`).join('')
+        : '<p class="text-slate-500">No prescriptions yet.</p>';
+    }
+    $('all-rx').addEventListener('click', async e => {
+      const id = e.target.dataset.rxCancel;
+      if (id && confirm('Cancel this prescription? The patient and pharmacies will be told.')) {
+        try { await api(`/api/prescriptions/${id}/cancel`, { method: 'POST' }); loadAllRx(); } catch (err) { P.toast(err.message, 'error'); }
+      }
+    });
+
+    // ---------- Walk-in / phone booking ----------
+    $('new-booking-btn').addEventListener('click', () => {
+      const f = $('walkin-form');
+      f.reset();
+      $('w-service').innerHTML = profile.services.filter(s => s.active).map(s =>
+        `<option value="${s.id}">${escapeHtml(s.name)} · ${s.duration} min · ${P.rupees(s.fee)}</option>`).join('');
+      $('w-date').min = P.isoDate(P.today());
+      $('w-date').value = P.isoDate(P.today());
+      P.setMessage($('walkin-msg'), '', 'info');
+      P.openModal('walkin');
+      loadWalkinTimes();
+    });
+    async function loadWalkinTimes() {
+      const sel = $('w-time');
+      sel.innerHTML = '<option value="">Loading…</option>';
+      try {
+        const data = await api(`/api/doctors/${encodeURIComponent(profile.slug)}/slots?date=${$('w-date').value}&service_id=${$('w-service').value}`);
+        sel.innerHTML = data.slots.length ? data.slots.map(t => `<option value="${t}">${P.prettyTime(t)}</option>`).join('')
+          : `<option value="">${data.open ? 'No free times' : 'Not working this day'}</option>`;
+      } catch (err) { sel.innerHTML = `<option value="">${escapeHtml(err.message)}</option>`; }
+    }
+    ['w-date', 'w-service'].forEach(id => $(id).addEventListener('change', loadWalkinTimes));
+    $('walkin-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = Object.fromEntries(new FormData(e.target));
+      body.service_id = Number(body.service_id);
+      body.email = body.email || null;
+      body.reason = body.reason || null;
+      try {
+        const res = await api('/api/doctor/appointments', { method: 'POST', body });
+        P.closeModal('walkin');
+        P.toast(`Booked ${res.appointment.patient_name} at ${P.prettyTime(res.appointment.appointment_time)}`
+          + (body.email && res.account_created ? ' — invite emailed' : ''), 'success');
+        range = 'upcoming'; loadAppointments(); loadStats();
+      } catch (err) { P.setMessage($('walkin-msg'), err.message, 'error'); }
+    });
+
+    // ---------- Payouts ----------
+    async function loadPayouts() {
+      const e = await api('/api/doctor/earnings');
+      const card = (label, v) => `<div class="rounded-lg bg-slate-50 p-3"><p class="text-xs text-slate-500">${label}</p><p class="font-bold text-right tabular-nums">${v}</p></div>`;
+      $('earn-summary').innerHTML = card('Online fees earned', P.money(e.earned_paise)) + card(`Platform fee (${e.commission_percent}%)`, P.money(e.commission_paise))
+        + card('Paid out', P.money(e.paid_out_paise)) + card('Due to you', P.money(e.due_paise));
+      $('payout-body').innerHTML = e.payouts.length ? e.payouts.map((po, n) => `<tr><td class="num px-3 py-2">${n + 1}</td>
+          <td class="txt px-3 py-2">${escapeHtml(P.prettyDate(po.created_at.slice(0, 10)))}</td><td class="num px-3 py-2">${P.money(po.amount_paise)}</td>
+          <td class="txt px-3 py-2">${escapeHtml(po.reference || '')}</td></tr>`).join('')
+        : '<tr><td colspan="4" class="px-3 py-4 text-center text-slate-500">No payouts yet.</td></tr>';
+    }
+
+    // ---------- Filters, export, start ----------
+    document.querySelectorAll('.range').forEach(b => b.addEventListener('click', () => { range = b.dataset.range; loadAppointments(); }));
+    $('f-status').addEventListener('change', loadAppointments);
+    let qTimer;
+    $('f-q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(loadAppointments, 250); });
+    $('export-btn').addEventListener('click', async () => {
+      const res = await api(`/api/doctor/export.csv?${rangeParams()}`, { raw: true });
+      const url = URL.createObjectURL(await res.blob());
+      Object.assign(document.createElement('a'), { href: url, download: `appointments-${P.isoDate(P.today())}.csv` }).click();
+      URL.revokeObjectURL(url);
+    });
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+    // Every loader shows an inline error with Retry instead of leaving a blank panel
+    loadStats = P.guard(loadStats, 'stats');
+    loadAppointments = P.guard(loadAppointments, 'appt-body');
+    loadPatients = P.guard(loadPatients, 'patient-body');
+    loadBlocks = P.guard(loadBlocks, 'blocks');
+    renderRxSection = P.guard(renderRxSection, 'd-rx');
+    loadAllRx = P.guard(loadAllRx, 'all-rx');
+    loadRequests = P.guard(loadRequests, 'req-mr');
+    loadPayouts = P.guard(loadPayouts, 'payout-body');
+    fillProfileForm = P.guard(fillProfileForm);
+    openHistory = P.guard(openHistory);
+
+    (async () => {
+      config = await api('/api/config');
+      const { user } = await P.me();
+      if (!user) return showRegister();
+      if (user.role !== 'doctor') { location.href = P.DASHBOARD[user.role][0]; return; }
+      $('app-view').classList.remove('hidden');
+      $('edit-profile-fields').innerHTML = profileFieldsHtml();
+      profile = await api('/api/doctor/profile');
+      $('welcome').textContent = `Welcome, ${profile.name}`;
+      if (profile.rating) $('public-link').insertAdjacentHTML('afterend', ` <span class="text-sm text-amber-600">★ ${profile.rating} (${profile.rating_count} reviews)</span>`);
+      $('public-link').href = `/doctors/${encodeURIComponent(profile.slug)}`;
+      renderBanner();
+      const start = location.hash.slice(1);
+      showTab(['requests', 'prescriptions', 'patients', 'schedule', 'profile'].includes(start) ? start : 'appointments');
+      loadStats();
+      loadAppointments();
+      api('/api/doctor/requests').then(updateRequestCount).catch(() => {});
+    })().catch(P.fatal);
+  </script>
+</body>
+</html>

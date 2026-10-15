@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Receipt | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <style>
+    .data-table th { text-align: center; font-weight: 700; }
+    .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .data-table td.txt { text-align: left; }
+    @media print { #site-nav, .no-print { display: none !important; } body { background: #fff; } .sheet { box-shadow: none; border: 0; } }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-100 min-h-screen">
+  <header id="site-nav"></header>
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    <div class="no-print flex justify-end mb-3"><button onclick="window.print()" class="px-4 py-2 bg-slate-800 text-white text-sm rounded-lg">Print / Save as PDF</button></div>
+    <article id="sheet" class="sheet bg-white rounded-xl shadow border border-slate-200 p-8 space-y-6"><p class="text-slate-500">Loading…</p></article>
+  </main>
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    const STATUS = { paid: 'Paid', refunded: 'Refunded', not_refundable: 'Paid (non-refundable)', unpaid: 'Unpaid', refund_failed: 'Refund pending' };
+    (async () => {
+      await P.requireRole();
+      const params = new URLSearchParams(location.search);
+      const id = encodeURIComponent(params.get('id') || '');
+      const doc = await api(params.get('type') === 'order' ? `/api/orders/${id}/invoice` : `/api/appointments/${id}/receipt`);
+      document.title = `${doc.kind} ${doc.reference} | Pyshio`;
+      const mrpCol = doc.lines.some(l => l.mrp_paise);
+      $('sheet').innerHTML = `
+        <header class="flex justify-between gap-4 border-b-2 border-sky-600 pb-4">
+          <div><p class="text-xl font-bold text-slate-900">${escapeHtml(doc.seller.name)}</p>
+            <p class="text-sm text-slate-700">${escapeHtml(doc.seller.detail || '')}</p>
+            <p class="text-sm text-slate-500">${escapeHtml(doc.seller.address)}</p>
+            ${doc.seller.gstin ? `<p class="text-sm text-slate-700">GSTIN ${escapeHtml(doc.seller.gstin)}</p>` : ''}</div>
+          <div class="text-right text-sm"><p class="text-lg font-bold text-sky-700">${escapeHtml(doc.kind)}</p>
+            <p class="font-mono">${escapeHtml(doc.reference)}</p><p>${escapeHtml(P.prettyDate(doc.date))}</p></div>
+        </header>
+        <div class="text-sm"><p><strong>Billed to:</strong> ${escapeHtml(doc.buyer.name)}${doc.buyer.phone ? ' · ' + escapeHtml(doc.buyer.phone) : ''}</p>
+          ${doc.buyer.address ? `<p class="text-slate-600">${escapeHtml(doc.buyer.address)}</p>` : ''}
+          ${doc.prescription ? `<p class="text-slate-600">Against prescription ${escapeHtml(doc.prescription)}</p>` : ''}</div>
+        <div class="overflow-x-auto"><table class="data-table w-full text-sm border border-slate-200">
+          <thead class="bg-slate-50"><tr><th class="px-3 py-2">Sr No</th><th class="px-3 py-2">Description</th><th class="px-3 py-2">Qty</th>
+            ${mrpCol ? '<th class="px-3 py-2">MRP / unit</th>' : ''}<th class="px-3 py-2">Rate</th><th class="px-3 py-2">Amount</th></tr></thead>
+          <tbody class="divide-y divide-slate-100">${doc.lines.map((l, n) => `<tr>
+            <td class="num px-3 py-2">${n + 1}</td><td class="txt px-3 py-2">${escapeHtml(l.description)}</td>
+            <td class="num px-3 py-2">${P.num(l.quantity)}</td>
+            ${mrpCol ? `<td class="num px-3 py-2 text-slate-500">${l.mrp_paise ? P.money(l.mrp_paise) : '—'}</td>` : ''}
+            <td class="num px-3 py-2">${P.money(l.unit_paise)}</td><td class="num px-3 py-2">${P.money(l.amount_paise)}</td></tr>`).join('')}
+            ${doc.delivery_fee_paise ? `<tr><td class="num px-3 py-2"></td><td class="txt px-3 py-2">Delivery</td><td></td>${mrpCol ? '<td></td>' : ''}<td></td>
+              <td class="num px-3 py-2">${P.money(doc.delivery_fee_paise)}</td></tr>` : ''}
+          </tbody>
+          <tfoot><tr class="font-bold"><td colspan="${mrpCol ? 5 : 4}" class="px-3 py-2 text-right">Total</td><td class="num px-3 py-2">${P.money(doc.total_paise)}</td></tr></tfoot>
+        </table></div>
+        <p class="text-sm"><strong>Payment:</strong> ${escapeHtml(doc.payment.method)} · ${escapeHtml(STATUS[doc.payment.status] || doc.payment.status)}
+          ${doc.payment.reference ? ` · Ref ${escapeHtml(doc.payment.reference)}` : ''}</p>
+        <footer class="border-t border-slate-200 pt-4 text-xs text-slate-500">Generated by Pyshio on behalf of the seller. Prices include applicable taxes.</footer>`;
+    })().catch(P.fatal);
+  </script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Prescription | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <style>
+    .data-table th { text-align: center; font-weight: 700; }
+    .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .data-table td.txt { text-align: left; }
+    @media print { #site-nav, .no-print { display: none !important; } body { background: #fff; } .sheet { box-shadow: none; border: 0; } }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-100 min-h-screen">
+  <header id="site-nav"></header>
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    <div class="no-print flex justify-end mb-3"><button onclick="window.print()" class="px-4 py-2 bg-slate-800 text-white text-sm rounded-lg">Print</button></div>
+    <article id="sheet" class="sheet bg-white rounded-xl shadow border border-slate-200 p-8 space-y-6"><p class="text-slate-500">Loading…</p></article>
+  </main>
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    const SEX = { M: 'Male', F: 'Female', O: 'Other' };
+    (async () => {
+      await P.requireRole();
+      try {
+        const rx = await api(`/api/prescriptions/${encodeURIComponent(location.pathname.split('/').pop())}`);
+        const d = rx.doctor;
+        $('sheet').innerHTML = `
+          <header class="flex justify-between gap-4 border-b-2 border-sky-600 pb-4">
+            <div><p class="text-xl font-bold text-slate-900">${escapeHtml(d.name)}</p>
+              <p class="text-sm text-slate-700">${escapeHtml(d.qualification)} · ${escapeHtml(d.category)}</p>
+              <p class="text-sm text-slate-700">Reg. No. ${escapeHtml(d.registration_no)}${d.registration_council ? ' · ' + escapeHtml(d.registration_council) : ''}</p>
+              <p class="text-sm text-slate-500">${escapeHtml(d.clinic)}</p></div>
+            <div class="text-right text-sm"><p class="text-3xl font-serif text-sky-700">℞</p>
+              <p class="font-mono">${escapeHtml(rx.reference)}</p><p>${escapeHtml(P.prettyDate(rx.created_at.slice(0, 10)))}</p></div>
+          </header>
+          ${rx.patient ? `<p class="text-sm"><strong>Patient:</strong> ${escapeHtml(rx.patient.name)}${rx.patient.age != null ? ` · ${rx.patient.age} yrs` : ''}${rx.patient.sex ? ` · ${SEX[rx.patient.sex]}` : ''}${rx.patient.booked_by ? ` <span class="text-slate-500">(${escapeHtml(rx.patient.relation || 'family')} of ${escapeHtml(rx.patient.booked_by)})</span>` : ''}</p>`
+            : '<p class="text-sm text-slate-500">Patient details are shared with the pharmacy once the patient orders.</p>'}
+          ${(rx.conditions || []).length ? `<p class="text-sm"><strong>Diagnosis:</strong> ${rx.conditions.map(c => `${escapeHtml(c.name)} (${escapeHtml(c.code)})`).join(', ')}</p>` : ''}
+          ${rx.diagnosis ? `<p class="text-sm"><strong>${(rx.conditions || []).length ? 'Notes' : 'Diagnosis'}:</strong> ${escapeHtml(rx.diagnosis)}</p>` : ''}
+          ${rx.refill_of ? `<p class="text-sm"><strong>Refill ${rx.refill_number}</strong> of ${escapeHtml(rx.refill_of)}, pre-authorised by the prescribing doctor.</p>` : ''}
+          ${rx.refills && rx.refills.allowed && !rx.refill_of ? `<p class="text-sm"><strong>Refills authorised:</strong> ${rx.refills.allowed} (long-term medicines only, until ${escapeHtml(P.prettyDate(rx.refills.until.slice(0, 10)))})</p>` : ''}
+          <div class="overflow-x-auto ${rx.items.length ? '' : 'hidden'}"><table class="data-table w-full text-sm border border-slate-200">
+            <thead class="bg-slate-50"><tr><th class="px-3 py-2">Sr No</th><th class="px-3 py-2">Medicine</th><th class="px-3 py-2">Dosage</th><th class="px-3 py-2">Duration</th><th class="px-3 py-2">Quantity</th></tr></thead>
+            <tbody class="divide-y divide-slate-100">${rx.items.map((i, n) => `<tr>
+              <td class="num px-3 py-2">${n + 1}</td>
+              <td class="txt px-3 py-2"><p class="font-medium">${escapeHtml(i.name)}${i.is_long_term ? ' <span class="text-xs font-normal text-emerald-700">(long-term)</span>' : ''}</p>
+                <p class="text-xs text-slate-500">${escapeHtml([i.generic_name, i.strength, i.form].filter(Boolean).join(' · '))}${i.allow_substitute ? '' : ' · No substitution'}</p>
+                ${i.instructions ? `<p class="text-xs text-slate-600">${escapeHtml(i.instructions)}</p>` : ''}</td>
+              <td class="txt px-3 py-2">${escapeHtml(i.dosage || '')}</td><td class="txt px-3 py-2">${escapeHtml(i.duration || '')}</td>
+              <td class="num px-3 py-2">${P.num(i.quantity)}</td></tr>`).join('')}</tbody>
+          </table></div>
+          ${(rx.tests || []).length ? `<div class="text-sm"><p><strong>Investigations advised:</strong></p><ol class="list-decimal pl-6">${rx.tests.map(t => `<li>${escapeHtml(t.name)}${t.instructions ? ` <span class="text-slate-500">(${escapeHtml(t.instructions)})</span>` : ''}</li>`).join('')}</ol></div>` : ''}
+          ${rx.advice ? `<p class="text-sm"><strong>Advice:</strong> ${escapeHtml(rx.advice)}</p>` : ''}
+          ${rx.follow_up_on ? `<p class="text-sm"><strong>Follow-up:</strong> ${escapeHtml(new Date(rx.follow_up_on + 'T00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))}</p>` : ''}
+          <footer class="border-t border-slate-200 pt-4 text-xs text-slate-500 flex justify-between gap-4">
+            <span>Digitally issued by ${escapeHtml(d.name)} via Pyshio. Valid until ${escapeHtml(P.prettyDate(rx.valid_until.slice(0, 10)))}.</span>
+            <span>${rx.status === 'cancelled' ? '<strong class="text-red-600">CANCELLED</strong>' : ''}</span>
+          </footer>`;
+      } catch (err) {
+        $('sheet').innerHTML = `<p class="text-red-600">${escapeHtml(err.message)}</p>`;
+      }
+    })();
+  </script>
+</body>
+</html>

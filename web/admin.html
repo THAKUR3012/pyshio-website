@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Pyshio Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <script src="/features/assistant/assistant.js" defer></script>
+  <style>
+    .data-table th { text-align: center; font-weight: 700; }
+    .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .data-table td.txt { text-align: left; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+  <header id="site-nav"></header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold text-slate-900">Platform admin</h1>
+      <div class="flex flex-wrap gap-1 p-1 bg-slate-200/60 rounded-lg text-sm font-medium">
+        <button data-tab="analytics" class="tab px-3 py-1.5 rounded-md">Analytics</button>
+        <button data-tab="doctors" class="tab px-3 py-1.5 rounded-md">Doctors <span id="pending-doctors" class="hidden ml-1 px-1.5 rounded-full bg-amber-500 text-white text-xs"></span></button>
+        <button data-tab="pharmacies" class="tab px-3 py-1.5 rounded-md">Pharmacies <span id="pending-pharmacies" class="hidden ml-1 px-1.5 rounded-full bg-amber-500 text-white text-xs"></span></button>
+        <button data-tab="labs" class="tab px-3 py-1.5 rounded-md">Labs <span id="pending-labs" class="hidden ml-1 px-1.5 rounded-full bg-amber-500 text-white text-xs"></span></button>
+        <button data-tab="companies" class="tab px-3 py-1.5 rounded-md">Pharma companies <span id="pending-companies" class="hidden ml-1 px-1.5 rounded-full bg-amber-500 text-white text-xs"></span></button>
+        <button data-tab="appointments" class="tab px-3 py-1.5 rounded-md">Appointments</button>
+        <button data-tab="orders" class="tab px-3 py-1.5 rounded-md">Medicine orders</button>
+        <button data-tab="settlements" class="tab px-3 py-1.5 rounded-md">Settlements</button>
+        <button data-tab="catalogue" class="tab px-3 py-1.5 rounded-md">Medicines</button>
+        <button data-tab="tests" class="tab px-3 py-1.5 rounded-md">Lab tests</button>
+        <button data-tab="users" class="tab px-3 py-1.5 rounded-md">Users</button>
+        <button data-tab="activity" class="tab px-3 py-1.5 rounded-md">Activity</button>
+      </div>
+    </div>
+
+    <section id="stats" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3"></section>
+
+    <!-- Doctors / pharmacies (same layout) -->
+    <section data-panel="doctors" class="panel bg-white rounded-2xl border border-slate-200">
+      <div class="p-4 border-b border-slate-200 flex flex-wrap gap-2 text-sm" data-filter="doctors"></div>
+      <div class="overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Doctor</th><th class="px-3 py-3">Type</th><th class="px-3 py-3">Registration</th>
+          <th class="px-3 py-3">Clinic</th><th class="px-3 py-3">Experience (yrs)</th><th class="px-3 py-3">Fee from</th><th class="px-3 py-3">Status</th><th class="px-3 py-3"></th></tr></thead>
+        <tbody id="doctor-body" class="divide-y divide-slate-100"></tbody></table></div>
+    </section>
+    <section data-panel="pharmacies" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <div class="p-4 border-b border-slate-200 flex flex-wrap gap-2 text-sm" data-filter="pharmacies"></div>
+      <div class="overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Store</th><th class="px-3 py-3">Drug licence</th><th class="px-3 py-3">Pharmacist</th>
+          <th class="px-3 py-3">Address</th><th class="px-3 py-3">Delivery</th><th class="px-3 py-3">Status</th><th class="px-3 py-3"></th></tr></thead>
+        <tbody id="pharmacy-body" class="divide-y divide-slate-100"></tbody></table></div>
+    </section>
+
+    <!-- Appointments -->
+    <section data-panel="appointments" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <form id="filters" class="p-4 border-b border-slate-200 grid grid-cols-2 md:grid-cols-6 gap-2 text-sm items-end">
+        <label class="text-slate-600">From<input name="date_from" type="date" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">To<input name="date_to" type="date" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">Status<select name="status" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg">
+          <option value="">Any</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option>
+          <option value="no_show">No-show</option><option value="cancelled">Cancelled</option><option value="pending_payment">Awaiting payment</option></select></label>
+        <label class="text-slate-600">Doctor<select name="doctor_id" id="f-doctor" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg"><option value="">All</option></select></label>
+        <label class="text-slate-600">Search<input name="q" placeholder="Patient, doctor, ref" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <button type="button" id="export-btn" class="px-3 py-2 bg-slate-800 text-white rounded-lg">Export CSV</button>
+      </form>
+      <div class="overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Date &amp; time</th><th class="px-3 py-3">Patient</th><th class="px-3 py-3">Doctor</th>
+          <th class="px-3 py-3">Service</th><th class="px-3 py-3">Fee</th><th class="px-3 py-3">Payment</th><th class="px-3 py-3">Status</th><th class="px-3 py-3">Ref</th></tr></thead>
+        <tbody id="appt-body" class="divide-y divide-slate-100"></tbody></table></div>
+      <p id="appt-total" class="px-4 py-3 text-xs text-slate-500 border-t border-slate-200"></p>
+    </section>
+
+    <!-- Medicine orders -->
+    <section data-panel="orders" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <div id="o-filters" class="p-4 border-b border-slate-200 flex flex-wrap gap-2 text-sm items-end">
+        <label class="text-slate-600">From<input id="o-from" type="date" class="block mt-1 px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">To<input id="o-to" type="date" class="block mt-1 px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600 flex-1 min-w-[10rem]">Search<input id="o-q" placeholder="Order, patient, pharmacy" class="block w-full mt-1 px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <button type="button" id="o-export" class="px-3 py-2 bg-slate-800 text-white rounded-lg">Export CSV</button>
+        <select id="o-status" aria-label="Order status" class="px-2 py-1.5 border border-slate-300 rounded-lg"><option value="">Any status</option>
+          <option value="placed">Placed</option><option value="accepted">Accepted</option><option value="ready">Ready</option><option value="out_for_delivery">Out for delivery</option>
+          <option value="completed">Completed</option><option value="rejected">Rejected</option><option value="cancelled">Cancelled</option></select>
+      </div>
+      <div class="overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Order</th><th class="px-3 py-3">Patient</th><th class="px-3 py-3">Pharmacy</th>
+          <th class="px-3 py-3">Distance (km)</th><th class="px-3 py-3">Total</th><th class="px-3 py-3">Payment</th><th class="px-3 py-3">Status</th></tr></thead>
+        <tbody id="order-body" class="divide-y divide-slate-100"></tbody></table></div>
+    </section>
+
+    <!-- Settlements -->
+    <section data-panel="settlements" class="panel hidden space-y-4">
+      <p class="text-sm text-slate-600">Online payments are collected into the platform's Razorpay account. This shows what is owed to each doctor and pharmacy after the platform fee. Record a payout after you transfer the money (UPI / NEFT).</p>
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Payee</th><th class="px-3 py-3">Type</th><th class="px-3 py-3">Online earnings</th>
+          <th class="px-3 py-3">Platform fee</th><th class="px-3 py-3">Paid out</th><th class="px-3 py-3">Due</th><th class="px-3 py-3"></th></tr></thead>
+        <tbody id="settle-body" class="divide-y divide-slate-100"></tbody></table></div>
+      <h2 class="font-semibold text-slate-900 pt-2">Payout history</h2>
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Date</th><th class="px-3 py-3">Payee</th>
+          <th class="px-3 py-3">Amount</th><th class="px-3 py-3">Reference</th><th class="px-3 py-3">Note</th><th class="px-3 py-3">Recorded by</th></tr></thead>
+        <tbody id="payout-history" class="divide-y divide-slate-100"></tbody></table></div>
+    </section>
+
+    <!-- Users -->
+    <section data-panel="users" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <div id="u-filters" class="p-4 border-b border-slate-200 flex flex-wrap gap-2 text-sm">
+        <select id="u-role" aria-label="Role" class="px-2 py-1.5 border border-slate-300 rounded-lg"><option value="">All roles</option>
+          <option value="patient">Patients</option><option value="doctor">Doctors</option><option value="pharmacy">Pharmacies</option><option value="company">Pharma companies</option><option value="mr">Medical reps</option><option value="lab">Labs</option><option value="admin">Admins</option></select>
+        <input id="u-q" aria-label="Search users" placeholder="Name, email or phone" class="flex-1 min-w-[12rem] px-3 py-1.5 border border-slate-300 rounded-lg" />
+      </div>
+      <div class="overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Name</th><th class="px-3 py-3">Email</th><th class="px-3 py-3">Phone</th>
+          <th class="px-3 py-3">Role</th><th class="px-3 py-3">Joined</th><th class="px-3 py-3">Last login</th><th class="px-3 py-3">Status</th><th class="px-3 py-3"></th></tr></thead>
+        <tbody id="user-body" class="divide-y divide-slate-100"></tbody></table></div>
+    </section>
+
+    <!-- Activity -->
+    <section data-panel="activity" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <p class="p-4 text-sm text-slate-500 border-b border-slate-200">Every approval, suspension, refund retry, payout and account change, newest first.</p>
+      <div class="overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">When</th><th class="px-3 py-3">Who</th>
+          <th class="px-3 py-3">Action</th><th class="px-3 py-3">Target</th><th class="px-3 py-3">Detail</th></tr></thead>
+        <tbody id="audit-body" class="divide-y divide-slate-100"></tbody></table></div>
+    </section>
+
+
+    <!-- Analytics: disease, age, city, state, medicine -->
+    <section data-panel="analytics" class="panel hidden space-y-5">
+      <form id="an-filters" class="bg-white rounded-2xl border border-slate-200 p-4 grid grid-cols-2 md:grid-cols-5 gap-3 text-sm items-end">
+        <label class="text-slate-600">From<input name="date_from" type="date" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">To<input name="date_to" type="date" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">State<select name="state" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg"></select></label>
+        <label class="text-slate-600">City<select name="city" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg"></select></label>
+        <label class="text-slate-600">Care area<select name="care_area" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg"></select></label>
+        <label class="text-slate-600 md:col-span-2">Disease<select name="condition_id" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg"></select></label>
+        <label class="text-slate-600">Medicine / salt<input name="medicine" placeholder="e.g. metformin" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg" /></label>
+        <label class="text-slate-600">Age<select name="age" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg"></select></label>
+        <label class="text-slate-600">Sex<select name="sex" class="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg">
+          <option value="">All</option><option value="F">Female</option><option value="M">Male</option><option value="O">Other</option><option value="Unknown">Not recorded</option></select></label>
+        <div class="col-span-2 md:col-span-5 flex flex-wrap items-center justify-between gap-2">
+          <p id="an-active" class="text-xs text-slate-500"></p>
+          <div class="flex gap-2"><button type="button" id="an-reset" class="px-3 py-1.5 border border-slate-300 rounded-lg">Reset</button>
+            <button class="px-4 py-1.5 bg-sky-600 text-white font-semibold rounded-lg">Apply</button></div>
+        </div>
+      </form>
+      <p class="text-xs text-slate-500">Aggregated from prescriptions. A consultation is an original prescription (refills aren't new cases). Groups smaller than <span data-config="min_group_size">5</span> show as “&lt;5” and are left out of downloads, so no patient can be identified. Click a disease or state to filter by it.</p>
+      <div id="an-summary" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3"></div>
+      <div class="grid lg:grid-cols-2 gap-5">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4"><h2 class="font-semibold mb-2">Top diseases</h2><div class="h-72"><canvas id="ch-conditions"></canvas></div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4"><h2 class="font-semibold mb-2">Monthly trend</h2><div class="h-72"><canvas id="ch-trend"></canvas></div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4"><h2 class="font-semibold mb-2">By age &amp; sex</h2><div class="h-72"><canvas id="ch-age"></canvas></div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4"><h2 class="font-semibold mb-2">By care area</h2><div class="h-72"><canvas id="ch-areas"></canvas></div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4"><h2 class="font-semibold mb-2">By state</h2><div class="h-72"><canvas id="ch-states"></canvas></div></div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4"><h2 class="font-semibold mb-2">Top medicines</h2><div class="h-72"><canvas id="ch-medicines"></canvas></div></div>
+      </div>
+      <div id="an-tables" class="grid xl:grid-cols-2 gap-5"></div>
+    </section>
+
+    <!-- Labs -->
+    <section data-panel="labs" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <div class="p-4 border-b border-slate-200 flex flex-wrap items-center gap-2 text-sm" id="lab-filter">
+        <button data-status="pending" class="px-3 py-1.5 rounded-lg border border-slate-300">Pending</button>
+        <button data-status="approved" class="px-3 py-1.5 rounded-lg border border-slate-300">Approved</button>
+        <button data-status="" class="px-3 py-1.5 rounded-lg border border-slate-300">All</button>
+        <p class="text-xs text-slate-500 ml-auto">Verify the registration under the Clinical Establishments Act (and NABL number if given) before approving.</p>
+      </div>
+      <div id="lab-body" class="p-2"></div>
+    </section>
+
+    <!-- Lab test catalogue -->
+    <section data-panel="tests" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <div class="p-4 border-b border-slate-200 flex gap-2 text-sm"><input id="test-q" placeholder="Search tests" class="px-3 py-1.5 border border-slate-300 rounded-lg flex-1 max-w-sm" />
+        <p class="text-xs text-slate-500 self-center">MRP prices tests for labs with a flat discount; unit and normal range give patients high/low flags.</p></div>
+      <div id="test-body" class="p-2"></div>
+    </section>
+
+    <!-- Pharma companies -->
+    <section data-panel="companies" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <div class="p-4 border-b border-slate-200 flex flex-wrap items-center gap-2 text-sm" id="co-filter">
+        <button data-status="pending" class="px-3 py-1.5 rounded-lg border border-slate-300">Pending</button>
+        <button data-status="approved" class="px-3 py-1.5 rounded-lg border border-slate-300">Approved</button>
+        <button data-status="" class="px-3 py-1.5 rounded-lg border border-slate-300">All</button>
+        <p class="text-xs text-slate-500 ml-auto">Check the company's CIN / drug manufacturing licence before approving. Approved companies can invite MRs; MRs see only doctors who opted in, and counts only.</p>
+      </div>
+      <div id="co-body" class="p-2"></div>
+    </section>
+
+    <!-- Catalogue -->
+    <section data-panel="catalogue" class="panel hidden bg-white rounded-2xl border border-slate-200">
+      <div class="p-4 border-b border-slate-200 flex gap-2 text-sm"><input id="cat-q" placeholder="Search medicines" class="px-3 py-1.5 border border-slate-300 rounded-lg flex-1 max-w-sm" />
+        <p class="text-xs text-slate-500 self-center">Correct generic names matter (same generic + strength + form = allowed substitute). MRP powers pharmacies' flat-discount pricing.</p></div>
+      <div class="overflow-x-auto"><table class="data-table w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700"><tr><th class="px-3 py-3">Sr No</th><th class="px-3 py-3">Brand</th><th class="px-3 py-3">Generic</th><th class="px-3 py-3">Strength</th>
+          <th class="px-3 py-3">Form</th><th class="px-3 py-3">Pack</th><th class="px-3 py-3">MRP / pack (₹)</th><th class="px-3 py-3">Stocked by</th><th class="px-3 py-3"></th></tr></thead>
+        <tbody id="cat-body" class="divide-y divide-slate-100"></tbody></table></div>
+    </section>
+  </main>
+
+  <!-- Payout -->
+  <div id="payout" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="po-title">
+    <form id="payout-form" class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-3 text-sm">
+      <div class="flex items-center justify-between"><h2 id="po-title" class="font-semibold"></h2>
+        <button type="button" data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button></div>
+      <p id="po-due" class="text-slate-600"></p>
+      <label class="block text-slate-600">Amount transferred (₹)<input name="amount" type="number" step="0.01" min="0.01" required class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+      <label class="block text-slate-600">UTR / transaction reference<input name="reference" maxlength="100" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+      <label class="block text-slate-600">Note<input name="note" maxlength="300" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" /></label>
+      <p id="po-msg" class="hidden"></p>
+      <button class="w-full py-2.5 bg-emerald-600 text-white font-semibold rounded-lg">Record payout</button>
+    </form>
+  </div>
+
+  <!-- Partner review (doctor or pharmacy) -->
+  <div id="review" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <h2 id="r-title" class="font-semibold"></h2>
+        <button data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button>
+      </div>
+      <div class="p-6 space-y-4 text-sm">
+        <dl id="r-details" class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1"></dl>
+        <p id="r-warning" class="text-xs text-amber-700 bg-amber-50 rounded p-2"></p>
+        <label class="block text-slate-600">Reason (required to reject or suspend; emailed to them)
+          <textarea id="r-reason" rows="2" maxlength="500" class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea></label>
+        <div class="flex flex-wrap gap-2">
+          <button data-set="approved" class="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg">Approve</button>
+          <button data-set="rejected" class="px-4 py-2 border border-red-300 text-red-700 font-semibold rounded-lg">Reject</button>
+          <button data-set="suspended" class="px-4 py-2 border border-slate-300 font-semibold rounded-lg">Suspend</button>
+          <a id="r-preview" target="_blank" class="px-4 py-2 text-sky-700 hover:underline">Preview ↗</a>
+        </div>
+        <p id="r-msg" class="hidden"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    const filters = { doctors: 'pending', pharmacies: 'pending' };
+    let lists = { doctors: [], pharmacies: [] }, reviewing = null, catalogue = [];
+
+    async function loadStats() {
+      const [s, n] = await Promise.all([api('/api/admin/stats'), api('/api/admin/network-stats')]);
+      const card = (label, value, sub, warn) => `<div class="bg-white rounded-xl border ${warn ? 'border-red-300' : 'border-slate-200'} p-4">
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">${label}</p>
+          <p class="text-2xl font-bold ${warn ? 'text-red-600' : 'text-slate-900'} mt-1 text-right tabular-nums">${value}</p><p class="text-xs text-slate-500">${sub}</p></div>`;
+      const m = s.appointments_month;
+      $('stats').innerHTML = card('Pending approvals', P.num(s.doctors.pending + n.pharmacies.pending), `${s.doctors.pending} doctors · ${n.pharmacies.pending} pharmacies`, s.doctors.pending + n.pharmacies.pending > 0)
+        + card('Live doctors', P.num(s.doctors.approved), 'approved') + card('Live pharmacies', P.num(n.pharmacies.approved), 'approved')
+        + card('Patients', P.num(s.patients), 'registered')
+        + card('Bookings', P.num(m.confirmed + m.completed + m.no_show), 'this month')
+        + card('Prescriptions', P.num(n.prescriptions_month), `${P.num(n.orders_month)} orders this month`)
+        + card('Revenue', P.rupees(s.online_revenue_month), `fees online · ${P.money(n.medicine_sales_month_paise)} medicines`)
+        + card('Failed refunds', P.num(s.refunds_failed + n.order_refunds_failed), 'need attention', s.refunds_failed + n.order_refunds_failed > 0);
+      for (const [id, count] of [['pending-doctors', s.doctors.pending], ['pending-pharmacies', n.pharmacies.pending]]) {
+        $(id).textContent = count; $(id).classList.toggle('hidden', !count);
+      }
+    }
+
+    // ---------- Doctors & pharmacies ----------
+    document.querySelectorAll('[data-filter]').forEach(box => {
+      box.innerHTML = [['pending', 'Awaiting approval'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['suspended', 'Suspended'], ['', 'All']]
+        .map(([v, l]) => `<button data-status="${v}" class="px-3 py-1.5 rounded-lg border border-slate-300">${l}</button>`).join('');
+      box.addEventListener('click', e => { if (e.target.dataset.status !== undefined) { filters[box.dataset.filter] = e.target.dataset.status; loadPartners(box.dataset.filter); } });
+    });
+    async function loadPartners(kind) {
+      document.querySelectorAll(`[data-filter=${kind}] button`).forEach(b => b.classList.toggle('bg-sky-50', b.dataset.status === filters[kind]));
+      const status = filters[kind];
+      lists[kind] = await api(`/api/admin/${kind}${status ? '?status=' + status : ''}`);
+      const statusCell = x => `${escapeHtml(x.status)}${x.status_reason ? `<p class="text-xs text-slate-500">${escapeHtml(x.status_reason)}</p>` : ''}`;
+      if (kind === 'doctors') {
+        $('doctor-body').innerHTML = lists.doctors.length ? lists.doctors.map((d, i) => `<tr class="hover:bg-slate-50">
+          <td class="num px-3 py-2.5">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5"><p class="font-medium">${escapeHtml(d.name)}</p><p class="text-xs text-slate-500">${escapeHtml(d.email)} · ${escapeHtml(d.phone || '')}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(d.category_label)}${d.can_prescribe ? '<p class="text-xs text-emerald-700">can prescribe</p>' : ''}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(d.registration_no)}<p class="text-xs text-slate-500">${escapeHtml(d.qualification)}${d.registration_council ? ' · ' + escapeHtml(d.registration_council) : ''}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(d.clinic_name)}<p class="text-xs text-slate-500">${escapeHtml(d.city)}${d.lat == null ? ' · <span class="text-amber-700">no map pin</span>' : ''}</p></td>
+          <td class="num px-3 py-2.5">${P.num(d.experience_years)}</td>
+          <td class="num px-3 py-2.5">${d.fee_from == null ? '—' : P.rupees(d.fee_from)}</td>
+          <td class="txt px-3 py-2.5">${statusCell(d)}</td>
+          <td class="txt px-3 py-2.5"><button data-review="doctors:${i}" class="text-sky-700 hover:underline font-medium">Review</button></td></tr>`).join('')
+          : '<tr><td colspan="9" class="px-3 py-8 text-center text-slate-500">No doctors here.</td></tr>';
+      } else {
+        $('pharmacy-body').innerHTML = lists.pharmacies.length ? lists.pharmacies.map((p, i) => `<tr class="hover:bg-slate-50">
+          <td class="num px-3 py-2.5">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5"><p class="font-medium">${escapeHtml(p.store_name)}</p><p class="text-xs text-slate-500">${escapeHtml(p.name)} · ${escapeHtml(p.email)} · ${escapeHtml(p.phone || '')}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(p.drug_licence_no)}${p.gstin ? `<p class="text-xs text-slate-500">GSTIN ${escapeHtml(p.gstin)}</p>` : ''}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(p.pharmacist_name)}<p class="text-xs text-slate-500">Reg. ${escapeHtml(p.pharmacist_reg_no)}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(p.address)}<p class="text-xs text-slate-500">${escapeHtml(p.city)} ${escapeHtml(p.pincode || '')}</p></td>
+          <td class="txt px-3 py-2.5 text-xs">${p.offers_delivery ? `${p.delivery_radius_km} km · ${P.money(p.delivery_fee_paise)}` : 'Pickup only'}</td>
+          <td class="txt px-3 py-2.5">${statusCell(p)}</td>
+          <td class="txt px-3 py-2.5"><button data-review="pharmacies:${i}" class="text-sky-700 hover:underline font-medium">Review</button></td></tr>`).join('')
+          : '<tr><td colspan="8" class="px-3 py-8 text-center text-slate-500">No pharmacies here.</td></tr>';
+      }
+    }
+    document.addEventListener('click', e => {
+      const ref = e.target.dataset && e.target.dataset.review;
+      if (!ref) return;
+      const [kind, i] = ref.split(':');
+      const x = lists[kind][i];
+      reviewing = { kind, item: x };
+      const rows = kind === 'doctors'
+        ? [['Type', x.category_label], ['Email', x.email], ['Mobile', x.phone], ['Qualification', x.qualification], ['Registration no.', x.registration_no],
+           ['Council', x.registration_council || '—'], ['Experience', `${x.experience_years} years`], ['Specialities', x.specialities.join(', ') || '—'],
+           ['Clinic', `${x.clinic_name}, ${x.address}, ${x.city} ${x.pincode || ''}`], ['Map pin', x.lat == null ? 'Not set' : `${x.lat}, ${x.lng}`], ['Bio', x.bio || '—']]
+        : [['Contact', `${x.name} · ${x.email} · ${x.phone || ''}`], ['Drug licence', x.drug_licence_no], ['Pharmacist', `${x.pharmacist_name} (Reg. ${x.pharmacist_reg_no})`],
+           ['GSTIN', x.gstin || '—'], ['Address', `${x.address}, ${x.city} ${x.pincode || ''}`], ['Map pin', `${x.lat}, ${x.lng}`],
+           ['Hours', x.opening_hours || '—'], ['Delivery', x.offers_delivery ? `${x.delivery_radius_km} km, ${P.money(x.delivery_fee_paise)}` : 'No']];
+      $('r-title').textContent = kind === 'doctors' ? x.name : x.store_name;
+      $('r-details').innerHTML = rows.map(([k, v]) => `<dt class="text-slate-500">${k}</dt><dd class="text-slate-900">${escapeHtml(v)}</dd>`).join('');
+      $('r-warning').textContent = kind === 'doctors' ? 'Verify the registration number with the issuing council (NMC / state medical, dental or physiotherapy council) before approving.'
+        : 'Verify the drug licence (Form 20/21) with the State Drugs Control department and the pharmacist registration before approving.';
+      $('r-reason').value = x.status_reason || '';
+      $('r-preview').classList.toggle('hidden', kind !== 'doctors');
+      if (kind === 'doctors') $('r-preview').href = `/doctors/${encodeURIComponent(x.slug)}`;
+      P.setMessage($('r-msg'), '', 'info');
+      P.openModal('review');
+    });
+    document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', async () => {
+      try {
+        await api(`/api/admin/${reviewing.kind}/${reviewing.item.id}/status`, { method: 'POST', body: { status: b.dataset.set, reason: $('r-reason').value.trim() || null } });
+        P.closeModal('review');
+        P.toast(`${b.dataset.set[0].toUpperCase() + b.dataset.set.slice(1)}. They have been emailed.`, 'success');
+        loadPartners(reviewing.kind); loadStats(); loadDoctorFilter();
+      } catch (err) { P.setMessage($('r-msg'), err.message, 'error'); }
+    }));
+
+    // ---------- Appointments ----------
+    const filterParams = () => new URLSearchParams([...new FormData($('filters')).entries()].filter(([, v]) => v));
+    async function loadDoctorFilter() {
+      const all = await api('/api/admin/doctors?status=approved');
+      $('f-doctor').innerHTML = '<option value="">All</option>' + all.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
+    }
+    async function loadAppointments() {
+      const appts = await api(`/api/admin/appointments?${filterParams()}`);
+      $('appt-body').innerHTML = appts.length ? appts.map((a, i) => `<tr class="hover:bg-slate-50 ${a.status === 'cancelled' ? 'opacity-70' : ''}">
+          <td class="num px-3 py-2.5">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5 whitespace-nowrap">${escapeHtml(P.prettyDate(a.appointment_date))}<p class="text-xs text-slate-500">${escapeHtml(P.prettyTime(a.appointment_time))}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(a.patient_name)}<p class="text-xs text-slate-500">${escapeHtml(a.patient_phone || '')}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(a.doctor_name)}<p class="text-xs text-slate-500">${escapeHtml(a.city)}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(a.service_name)}</td>
+          <td class="num px-3 py-2.5">${P.rupees(a.fee)}</td>
+          <td class="txt px-3 py-2.5 text-xs">${escapeHtml(P.paymentLabel(a))}${a.payment_status === 'refund_failed' ? `<button data-refund="${a.id}" class="block mt-1 text-red-700 hover:underline font-medium">Retry refund</button>` : ''}</td>
+          <td class="txt px-3 py-2.5">${P.badge(a.status)}</td>
+          <td class="txt px-3 py-2.5 font-mono text-xs">${escapeHtml(a.reference)}</td></tr>`).join('')
+        : '<tr><td colspan="9" class="px-3 py-8 text-center text-slate-500">No appointments match.</td></tr>';
+      const total = appts.filter(a => a.payment_status === 'paid').reduce((s, a) => s + a.fee, 0);
+      $('appt-total').textContent = `${P.num(appts.length)} appointment(s) · ${P.rupees(total)} collected`;
+    }
+    $('appt-body').addEventListener('click', async e => {
+      if (!e.target.dataset.refund) return;
+      try { const res = await api(`/api/admin/appointments/${e.target.dataset.refund}/retry-refund`, { method: 'POST' }); P.toast(res.note, 'success'); loadAppointments(); loadStats(); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+    let fTimer;
+    $('filters').addEventListener('input', () => { clearTimeout(fTimer); fTimer = setTimeout(loadAppointments, 250); });
+    $('export-btn').addEventListener('click', async () => {
+      const res = await api(`/api/admin/export.csv?${filterParams()}`, { raw: true });
+      const url = URL.createObjectURL(await res.blob());
+      Object.assign(document.createElement('a'), { href: url, download: `pyshio-appointments-${P.isoDate(P.today())}.csv` }).click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ---------- Orders ----------
+    async function loadOrders() {
+      const status = $('o-status').value;
+      const orders = await api(`/api/admin/orders?${orderParams()}`);
+      $('order-body').innerHTML = orders.length ? orders.map((o, i) => `<tr class="hover:bg-slate-50">
+          <td class="num px-3 py-2.5">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5"><p class="font-mono text-xs">${escapeHtml(o.reference)}</p><p class="text-xs text-slate-500">${escapeHtml(new Date(o.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }))} · ${o.fulfilment}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(o.patient_name)}<p class="text-xs text-slate-500">${escapeHtml(o.patient_phone || '')}</p></td>
+          <td class="txt px-3 py-2.5">${escapeHtml(o.store_name)}</td>
+          <td class="num px-3 py-2.5">${P.num(o.distance_km)}</td>
+          <td class="num px-3 py-2.5 font-semibold">${P.money(o.total_paise)}</td>
+          <td class="txt px-3 py-2.5 text-xs">${escapeHtml(o.payment_method)} · ${escapeHtml(o.payment_status)}${o.payment_status === 'refund_failed' ? `<button data-orefund="${o.id}" class="block text-red-700 font-medium hover:underline">Retry refund</button>` : ''}</td>
+          <td class="txt px-3 py-2.5">${P.orderBadge(o.status)}</td></tr>`).join('')
+        : '<tr><td colspan="8" class="px-3 py-8 text-center text-slate-500">No medicine orders.</td></tr>';
+    }
+    function orderParams() {
+      const params = new URLSearchParams();
+      [['status', 'o-status'], ['date_from', 'o-from'], ['date_to', 'o-to'], ['q', 'o-q']]
+        .forEach(([k, id]) => { if ($(id).value.trim()) params.set(k, $(id).value.trim()); });
+      return params;
+    }
+    let oTimer;
+    $('o-filters').addEventListener('input', () => { clearTimeout(oTimer); oTimer = setTimeout(loadOrders, 250); });
+    $('o-export').addEventListener('click', () => P.safe(async () => {
+      const res = await api(`/api/admin/orders.csv?${orderParams()}`, { raw: true });
+      const url = URL.createObjectURL(await res.blob());
+      Object.assign(document.createElement('a'), { href: url, download: `medicine-orders-${P.isoDate(P.today())}.csv` }).click();
+      URL.revokeObjectURL(url);
+    }));
+    $('order-body').addEventListener('click', async e => {
+      if (!e.target.dataset.orefund) return;
+      try { const r = await api(`/api/admin/orders/${e.target.dataset.orefund}/retry-refund`, { method: 'POST' }); P.toast(r.note, 'success'); loadOrders(); loadStats(); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Settlements ----------
+    async function loadSettlements() {
+      const rows = await api('/api/admin/settlements');
+      $('settle-body').innerHTML = rows.length ? rows.map((s, i) => `<tr>
+          <td class="num px-3 py-2.5">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5 font-medium">${escapeHtml(s.name)}<p class="text-xs text-slate-500">${escapeHtml(s.detail || '')}</p></td>
+          <td class="txt px-3 py-2.5">${s.payee_role === 'doctor' ? 'Doctor' : 'Pharmacy'}</td>
+          <td class="num px-3 py-2.5">${P.money(s.earned_paise)}</td>
+          <td class="num px-3 py-2.5">${P.money(s.commission_paise)}</td>
+          <td class="num px-3 py-2.5">${P.money(s.paid_out_paise)}</td>
+          <td class="num px-3 py-2.5 font-bold ${s.due_paise > 0 ? 'text-emerald-700' : ''}">${P.money(s.due_paise)}</td>
+          <td class="txt px-3 py-2.5">${s.due_paise > 0 ? `<button data-pay="${i}" class="px-2 py-1 bg-emerald-600 text-white text-xs font-semibold rounded">Record payout</button>` : ''}</td></tr>`).join('')
+        : '<tr><td colspan="8" class="px-3 py-8 text-center text-slate-500">No online earnings yet.</td></tr>';
+      $('settle-body').rows_ = rows;
+    }
+    $('settle-body').addEventListener('click', e => {
+      const i = e.target.dataset.pay;
+      if (i === undefined) return;
+      const row = $('settle-body').rows_[i];
+      const f = $('payout-form');
+      f.reset();
+      f.dataset.index = i;
+      $('po-title').textContent = `Record payout to ${row.name}`;
+      $('po-due').textContent = `Due: ${P.money(row.due_paise)}`;
+      f.elements.amount.max = (row.due_paise / 100).toFixed(2);
+      f.elements.amount.value = (row.due_paise / 100).toFixed(2);
+      P.setMessage($('po-msg'), '', 'info');
+      P.openModal('payout');
+    });
+    $('payout-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target, row = $('settle-body').rows_[f.dataset.index];
+      const amount = Number(f.elements.amount.value);
+      if (!(amount > 0)) { P.setMessage($('po-msg'), 'Enter an amount', 'error'); return; }
+      try {
+        await api('/api/admin/payouts', { method: 'POST', body: { payee_role: row.payee_role, payee_id: row.payee_id, amount,
+          reference: f.elements.reference.value.trim() || null, note: f.elements.note.value.trim() || null } });
+        P.closeModal('payout');
+        P.toast('Payout recorded. The payee has been emailed.', 'success');
+        loadSettlements();
+      } catch (err) { P.setMessage($('po-msg'), err.message, 'error'); }
+    });
+
+    async function loadPayoutHistory() {
+      const list = await api('/api/admin/payouts');
+      $('payout-history').innerHTML = list.length ? list.map((po, i) => `<tr>
+          <td class="num px-3 py-2.5">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(P.prettyDate(po.created_at.slice(0, 10)))}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(po.payee_name)} <span class="text-xs text-slate-500">${escapeHtml(po.payee_role)}</span></td>
+          <td class="num px-3 py-2.5">${P.money(po.amount_paise)}</td>
+          <td class="txt px-3 py-2.5 font-mono text-xs">${escapeHtml(po.reference || '')}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(po.note || '')}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(po.created_by_name || '')}</td></tr>`).join('')
+        : '<tr><td colspan="7" class="px-3 py-6 text-center text-slate-500">No payouts yet.</td></tr>';
+    }
+
+    // ---------- Users ----------
+    async function loadUsers() {
+      const params = new URLSearchParams();
+      if ($('u-role').value) params.set('role', $('u-role').value);
+      if ($('u-q').value.trim()) params.set('q', $('u-q').value.trim());
+      const list = await api(`/api/admin/users?${params}`);
+      const when = t => t ? escapeHtml(new Date(t).toLocaleDateString('en-IN', { dateStyle: 'medium' })) : '—';
+      $('user-body').innerHTML = list.length ? list.map((u, i) => `<tr>
+          <td class="num px-3 py-2.5">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5 font-medium">${escapeHtml(u.name)}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(u.email)}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(u.phone || '')}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(u.role)}</td>
+          <td class="txt px-3 py-2.5">${when(u.created_at)}</td>
+          <td class="txt px-3 py-2.5">${when(u.last_login_at)}</td>
+          <td class="txt px-3 py-2.5">${u.deleted_at ? 'Closed' : u.is_active ? '<span class="text-emerald-700">Active</span>' : '<span class="text-red-700">Disabled</span>'}</td>
+          <td class="txt px-3 py-2.5">${u.deleted_at || u.role === 'admin' ? '' : `<button data-active="${u.is_active ? 0 : 1}" data-user="${u.id}" data-name="${escapeHtml(u.name)}"
+            class="px-2 py-1 rounded text-xs font-semibold ${u.is_active ? 'border border-red-300 text-red-700' : 'bg-emerald-600 text-white'}">${u.is_active ? 'Disable' : 'Enable'}</button>`}</td></tr>`).join('')
+        : '<tr><td colspan="9" class="px-3 py-6 text-center text-slate-500">No users match.</td></tr>';
+    }
+    let uTimer;
+    $('u-filters').addEventListener('input', () => { clearTimeout(uTimer); uTimer = setTimeout(loadUsers, 250); });
+    $('user-body').addEventListener('click', async e => {
+      const b = e.target.closest('button[data-user]');
+      if (!b) return;
+      const enable = b.dataset.active === '1';
+      if (!enable && !confirm(`Disable ${b.dataset.name}? They'll be signed out; their upcoming bookings and open orders are cancelled and refunded.`)) return;
+      try { await api(`/api/admin/users/${b.dataset.user}/active?active=${enable}`, { method: 'POST' }); P.toast(enable ? 'Enabled' : 'Disabled', 'success'); loadUsers(); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Activity ----------
+    async function loadAudit() {
+      const list = await api('/api/admin/audit');
+      $('audit-body').innerHTML = list.length ? list.map((a, i) => `<tr>
+          <td class="num px-3 py-2.5">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2.5 whitespace-nowrap">${escapeHtml(new Date(a.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }))}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(a.actor_name || 'System')} <span class="text-xs text-slate-500">${escapeHtml(a.actor_role || '')}</span></td>
+          <td class="txt px-3 py-2.5 font-mono text-xs">${escapeHtml(a.action)}</td>
+          <td class="txt px-3 py-2.5 font-mono text-xs">${escapeHtml(a.target || '')}</td>
+          <td class="txt px-3 py-2.5">${escapeHtml(a.detail || '')}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="px-3 py-6 text-center text-slate-500">No activity yet.</td></tr>';
+    }
+
+    // ---------- Catalogue ----------
+    async function loadCatalogue() {
+      catalogue = await api(`/api/admin/medicines?q=${encodeURIComponent($('cat-q').value.trim())}`);
+      $('cat-body').innerHTML = catalogue.map((m, i) => `<tr data-i="${i}">
+          <td class="num px-3 py-2">${P.num(i + 1)}</td>
+          <td class="txt px-3 py-2"><input class="c-name w-full px-2 py-1 border border-slate-200 rounded" value="${escapeHtml(m.name)}" /></td>
+          <td class="txt px-3 py-2"><input class="c-generic w-full px-2 py-1 border border-slate-200 rounded" value="${escapeHtml(m.generic_name || '')}" /></td>
+          <td class="txt px-3 py-2"><input class="c-strength w-24 px-2 py-1 border border-slate-200 rounded" value="${escapeHtml(m.strength || '')}" /></td>
+          <td class="txt px-3 py-2"><input class="c-form w-24 px-2 py-1 border border-slate-200 rounded" value="${escapeHtml(m.form || '')}" /></td>
+          <td class="num px-3 py-2"><input class="c-pack w-16 px-2 py-1 border border-slate-200 rounded text-right" type="number" min="1" value="${m.pack_size}" /></td>
+          <td class="num px-3 py-2"><input class="c-mrp w-20 px-2 py-1 border border-slate-200 rounded text-right" type="number" step="0.01" min="0" value="${m.mrp_paise ? m.mrp_paise / 100 : ''}" /></td>
+          <td class="num px-3 py-2">${P.num(m.stocked_by)}</td>
+          <td class="txt px-3 py-2"><button class="c-save text-sky-700 text-xs hover:underline">Save</button></td></tr>`).join('')
+        || '<tr><td colspan="9" class="px-3 py-8 text-center text-slate-500">No medicines found.</td></tr>';
+    }
+    let cTimer;
+    $('cat-q').addEventListener('input', () => { clearTimeout(cTimer); cTimer = setTimeout(loadCatalogue, 250); });
+    $('cat-body').addEventListener('click', async e => {
+      if (!e.target.classList.contains('c-save')) return;
+      const tr = e.target.closest('tr'), m = catalogue[tr.dataset.i];
+      try {
+        await api(`/api/admin/medicines/${m.id}`, { method: 'PUT', body: { name: tr.querySelector('.c-name').value, generic_name: tr.querySelector('.c-generic').value || null,
+          strength: tr.querySelector('.c-strength').value || null, form: tr.querySelector('.c-form').value || null, pack_size: Number(tr.querySelector('.c-pack').value), rx_required: m.rx_required,
+          mrp: tr.querySelector('.c-mrp').value ? Number(tr.querySelector('.c-mrp').value) : null } });
+        P.toast('Saved', 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Analytics ----------
+    let anOptions = null, anData = null;
+    async function initAnalytics() {
+      if (!anOptions) {
+        anOptions = await api('/api/admin/analytics/options');
+        const f = $('an-filters').elements;
+        f.state.innerHTML = P.stateOptions(anOptions.states, '', 'All states');
+        f.city.innerHTML = '<option value="">All cities</option>' + anOptions.cities.map(c => `<option>${escapeHtml(c)}</option>`).join('');
+        f.care_area.innerHTML = '<option value="">All care areas</option>' + anOptions.care_areas.map(c => `<option>${escapeHtml(c)}</option>`).join('');
+        f.condition_id.innerHTML = '<option value="">All diseases</option>' + anOptions.conditions.map(c =>
+          `<option value="${c.id}">${escapeHtml(c.name)} (${escapeHtml(c.code)})</option>`).join('');
+        f.age.innerHTML = '<option value="">All ages</option>' + anOptions.age_bands.map(b => `<option>${escapeHtml(b)}</option>`).join('');
+        f.date_from.value = P.isoDate(P.addDays(P.today(), -365));
+        f.date_to.value = P.isoDate(P.today());
+      }
+      await loadAnalytics();
+    }
+    function anParams() {
+      const params = new URLSearchParams();
+      for (const [k, v] of new FormData($('an-filters'))) if (String(v).trim()) params.set(k, String(v).trim());
+      return params;
+    }
+    const n = v => P.numeric(v);
+    async function loadAnalytics() {
+      const params = anParams();
+      anData = await api(`/api/admin/analytics?${params}`);
+      const a = anData, s = a.summary;
+      const active = [...params].filter(([k]) => !['date_from', 'date_to'].includes(k));
+      $('an-active').textContent = active.length ? `Filtered by ${active.map(([k, v]) => `${k.replace('_id', '').replace('_', ' ')}: ${k === 'condition_id' ? (anOptions.conditions.find(c => String(c.id) === v) || {}).name : v}`).join(' · ')}` : 'No filters: whole platform';
+      const card = (label, value, sub = '') => `<div class="bg-white rounded-xl border border-slate-200 p-3"><p class="text-xs text-slate-500">${label}</p>
+        <p class="text-lg font-bold text-slate-900 ${typeof value === 'number' || /^<|^\d/.test(String(value)) ? 'text-right tabular-nums' : 'truncate'}" title="${escapeHtml(value)}">${escapeHtml(P.count(value))}</p>${sub ? `<p class="text-xs text-slate-500 text-right">${sub}</p>` : ''}</div>`;
+      $('an-summary').innerHTML = card('Consultations', s.consultations) + card('Patients', s.patients) + card('Doctors', s.doctors)
+        + card('Refills', s.refills) + card('Diagnosis coded', s.coded_percent == null ? '—' : `${s.coded_percent}%`)
+        + card('Top disease', s.top_condition || '—') + card('Top medicine', s.top_medicine || '—');
+
+      const top = a.conditions.slice(0, 10);
+      P.chart('ch-conditions', { type: 'bar', data: { labels: top.map(c => c.name), datasets: [{ label: 'Cases', data: top.map(c => n(c.cases)), backgroundColor: '#0284c7' }] },
+        options: { indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } } });
+      P.chart('ch-trend', { type: 'line', data: { labels: a.trend.map(t => t.month), datasets: [
+        { label: 'Consultations', data: a.trend.map(t => n(t.consultations)), borderColor: '#0284c7', backgroundColor: '#0284c7', tension: .3 },
+        { label: 'All prescriptions', data: a.trend.map(t => n(t.prescriptions)), borderColor: '#059669', backgroundColor: '#059669', tension: .3 },
+        { label: 'Patients', data: a.trend.map(t => n(t.patients)), borderColor: '#d97706', backgroundColor: '#d97706', tension: .3 }] },
+        options: { scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } } });
+      const sexLabel = { M: 'Male', F: 'Female', O: 'Other', Unknown: 'Not recorded' };
+      P.chart('ch-age', { type: 'bar', data: { labels: a.age.map(r => r.band), datasets: a.sexes.map((sx, i) => ({
+        label: sexLabel[sx], data: a.age.map(r => n(r[sx])), backgroundColor: P.PALETTE[i] })) },
+        options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } } });
+      P.chart('ch-areas', { type: 'doughnut', data: { labels: a.care_areas.map(c => c.care_area), datasets: [{ data: a.care_areas.map(c => n(c.cases)), backgroundColor: P.PALETTE }] },
+        options: { plugins: { legend: { display: true, position: 'right' } } } });
+      const st = a.states.slice(0, 12);
+      P.chart('ch-states', { type: 'bar', data: { labels: st.map(r => r.state), datasets: [{ label: 'Cases', data: st.map(r => n(r.cases)), backgroundColor: '#7c3aed' }] },
+        options: { scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } } });
+      const md = a.medicines.slice(0, 10);
+      P.chart('ch-medicines', { type: 'bar', data: { labels: md.map(m => m.name), datasets: [{ label: 'Prescriptions', data: md.map(m => n(m.prescriptions)), backgroundColor: '#059669' }] },
+        options: { indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } } });
+
+      const block = (title, view, html) => `<div class="bg-white rounded-2xl border border-slate-200 p-4"><div class="flex items-center justify-between mb-2">
+        <h2 class="font-semibold">${title}</h2>${view ? `<a href="/api/admin/analytics/${view}.csv?${params}" class="text-xs text-sky-700 hover:underline">Download CSV</a>` : ''}</div>${html}</div>`;
+      const filterLink = (key, value, label) => `<button type="button" data-an-filter="${key}" data-an-value="${escapeHtml(value)}" class="text-left text-sky-700 hover:underline">${escapeHtml(label)}</button>`;
+      $('an-tables').innerHTML =
+        block('By disease', 'conditions', P.table([
+          { label: 'Disease', render: c => filterLink('condition_id', c.id, c.name) + ` <span class="text-xs text-slate-400">${escapeHtml(c.code)}</span>` },
+          { label: 'Care area', key: 'care_area' }, { label: 'Cases', key: 'cases', num: true }, { label: 'Patients', key: 'patients', num: true },
+          { label: '% of coded', num: true, render: c => c.percent == null ? '—' : `${c.percent}%` }], a.conditions, { empty: 'No coded diagnoses for these filters.' }))
+        + block('By age band &amp; sex', 'age', P.table([{ label: 'Age band', key: 'band' }, ...a.sexes.map(sx => ({ label: sexLabel[sx], key: sx, num: true })),
+          { label: 'Total', key: 'total', num: true }], a.age))
+        + block('By state', 'states', P.table([{ label: 'State', render: r => r.state === 'Unknown' ? 'Unknown' : filterLink('state', r.state, r.state) },
+          { label: 'Cases', key: 'cases', num: true }, { label: 'Patients', key: 'patients', num: true }, { label: 'Top disease', key: 'top_condition' }], a.states))
+        + block('By city', 'cities', P.table([{ label: 'City', render: r => r.city === 'Unknown' ? 'Unknown' : filterLink('city', r.city, r.city) }, { label: 'State', key: 'state' },
+          { label: 'Cases', key: 'cases', num: true }, { label: 'Patients', key: 'patients', num: true }, { label: 'Top disease', key: 'top_condition' }], a.cities))
+        + block('By medicine (brand)', 'medicines', P.table([{ label: 'Medicine', render: m => `<p>${escapeHtml(m.name)}</p><p class="text-xs text-slate-500">${escapeHtml([m.generic_name, m.strength].filter(Boolean).join(' '))}${m.manufacturer ? ' · ' + escapeHtml(m.manufacturer) : ''}</p>` },
+          { label: 'Care area', key: 'care_area' }, { label: 'Prescriptions', key: 'prescriptions', num: true }, { label: 'Units', key: 'units', num: true }], a.medicines))
+        + block('By salt (generic)', 'generics', P.table([{ label: 'Salt', render: g => filterLink('medicine', g.generic_name || '', g.generic_name || '—') }, { label: 'Care area', key: 'care_area' },
+          { label: 'Brands', key: 'brands', num: true }, { label: 'Prescriptions', key: 'prescriptions', num: true }, { label: 'Units', key: 'units', num: true }], a.generics))
+        + block('Lab tests ordered', 'tests', P.table([{ label: 'Test', key: 'name' }, { label: 'Category', key: 'category' },
+          { label: 'Prescriptions', key: 'prescriptions', num: true }], a.tests || [], { empty: 'No tests ordered in this period.' }))
+        + block('Disease × age band', null, P.table([{ label: 'Disease', key: 'condition' }, ...a.age_bands.map(b => ({ label: b, key: b, num: true }))], a.condition_by_age))
+        + block('Salt × state', null, P.table([{ label: 'Salt', key: 'generic_name' }, ...a.top_states.map(st => ({ label: st, key: st, num: true }))], a.medicine_by_state));
+    }
+    $('an-filters').addEventListener('submit', e => { e.preventDefault(); loadAnalytics(); });
+    $('an-reset').addEventListener('click', () => {
+      const f = $('an-filters');
+      [...f.elements].forEach(el => { if (el.name && !['date_from', 'date_to'].includes(el.name)) el.value = ''; });
+      loadAnalytics();
+    });
+    $('an-tables').addEventListener('click', e => {
+      const b = e.target.closest('[data-an-filter]');
+      if (!b) return;
+      const el = $('an-filters').elements[b.dataset.anFilter];
+      if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === b.dataset.anValue)) el.insertAdjacentHTML('beforeend', `<option>${escapeHtml(b.dataset.anValue)}</option>`);
+      el.value = b.dataset.anValue;
+      loadAnalytics();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // ---------- Pharma companies ----------
+    let coStatus = 'pending', companies = [];
+    async function loadCompanies() {
+      document.querySelectorAll('#co-filter button').forEach(b => b.classList.toggle('bg-sky-50', b.dataset.status === coStatus));
+      companies = await api(`/api/admin/companies${coStatus ? `?status=${coStatus}` : ''}`);
+      $('co-body').innerHTML = P.table([
+        { label: 'Company', render: c => `<p class="font-medium">${escapeHtml(c.name)}</p><p class="text-xs text-slate-500">${escapeHtml(c.contact_name)} · ${escapeHtml(c.email)} · ${escapeHtml(c.phone || '')}</p>` },
+        { label: 'CIN / GSTIN', render: c => `${escapeHtml(c.cin || '—')}<p class="text-xs text-slate-500">${escapeHtml(c.gstin || '')}</p>` },
+        { label: 'Location', render: c => `${escapeHtml(c.city)}<p class="text-xs text-slate-500">${escapeHtml(c.state || '')}</p>` },
+        { label: 'Divisions', key: 'divisions', num: true }, { label: 'MRs', key: 'mrs', num: true }, { label: 'Meetings', key: 'meetings', num: true },
+        { label: 'Status', render: c => `${escapeHtml(c.status)}${c.status_reason ? `<p class="text-xs text-slate-500">${escapeHtml(c.status_reason)}</p>` : ''}` },
+        { label: 'Action', render: c => `<div class="flex flex-wrap gap-1">${c.status !== 'approved' ? `<button data-co-status="approved" data-id="${c.id}" class="px-2 py-1 bg-emerald-600 text-white rounded text-xs">Approve</button>` : ''}
+            ${c.status === 'pending' ? `<button data-co-status="rejected" data-id="${c.id}" class="px-2 py-1 border border-slate-300 rounded text-xs">Reject</button>` : ''}
+            ${c.status === 'approved' ? `<button data-co-status="suspended" data-id="${c.id}" class="px-2 py-1 border border-red-300 text-red-700 rounded text-xs">Suspend</button>` : ''}</div>` },
+      ], companies, { empty: 'No companies here.' });
+    }
+    $('co-filter').addEventListener('click', e => { const b = e.target.closest('button[data-status]'); if (b) { coStatus = b.dataset.status; loadCompanies(); } });
+    $('co-body').addEventListener('click', async e => {
+      const b = e.target.closest('[data-co-status]');
+      if (!b) return;
+      const status = b.dataset.coStatus;
+      const reason = status === 'approved' ? null : prompt(`Reason (sent to the company):`);
+      if (status !== 'approved' && !reason) return;
+      try {
+        await api(`/api/admin/companies/${b.dataset.id}/status`, { method: 'POST', body: { status, reason } });
+        P.toast(`Company ${status}`, 'success');
+        loadCompanies(); loadStats();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Labs ----------
+    let labStatus = 'pending';
+    async function loadLabs() {
+      document.querySelectorAll('#lab-filter button').forEach(b => b.classList.toggle('bg-sky-50', b.dataset.status === labStatus));
+      const list = await api(`/api/admin/labs${labStatus ? `?status=${labStatus}` : ''}`);
+      $('lab-body').innerHTML = P.table([
+        { label: 'Lab', render: l => `<p class="font-medium">${escapeHtml(l.lab_name)}</p><p class="text-xs text-slate-500">${escapeHtml(l.name)} · ${escapeHtml(l.email)} · ${escapeHtml(l.phone || '')}</p>` },
+        { label: 'Registration', render: l => `${escapeHtml(l.registration_no)}<p class="text-xs text-slate-500">${l.nabl_no ? 'NABL ' + escapeHtml(l.nabl_no) : 'No NABL'}</p>` },
+        { label: 'Pathologist', render: l => `${escapeHtml(l.pathologist_name)}<p class="text-xs text-slate-500">Reg. ${escapeHtml(l.pathologist_reg_no)}</p>` },
+        { label: 'Location', render: l => `${escapeHtml(l.address)}<p class="text-xs text-slate-500">${escapeHtml(l.city)}${l.state ? ', ' + escapeHtml(l.state) : ''}</p>` },
+        { label: 'Collection', render: l => l.home_collection ? `Home · ${l.collection_radius_km} km · ${P.money(l.collection_fee_paise)}` : 'Walk-in only' },
+        { label: 'Report time', num: true, render: l => `${l.report_hours} h` },
+        { label: 'Status', render: l => `${escapeHtml(l.status)}${l.status_reason ? `<p class="text-xs text-slate-500">${escapeHtml(l.status_reason)}</p>` : ''}` },
+        { label: 'Action', render: l => `<div class="flex flex-wrap gap-1">${l.status !== 'approved' ? `<button data-lab-status="approved" data-id="${l.id}" class="px-2 py-1 bg-emerald-600 text-white rounded text-xs">Approve</button>` : ''}
+            ${l.status === 'pending' ? `<button data-lab-status="rejected" data-id="${l.id}" class="px-2 py-1 border border-slate-300 rounded text-xs">Reject</button>` : ''}
+            ${l.status === 'approved' ? `<button data-lab-status="suspended" data-id="${l.id}" class="px-2 py-1 border border-red-300 text-red-700 rounded text-xs">Suspend</button>` : ''}</div>` },
+      ], list, { empty: 'No labs here.' });
+    }
+    $('lab-filter').addEventListener('click', e => { const b = e.target.closest('button[data-status]'); if (b) { labStatus = b.dataset.status; loadLabs(); } });
+    $('lab-body').addEventListener('click', async e => {
+      const b = e.target.closest('[data-lab-status]');
+      if (!b) return;
+      const status = b.dataset.labStatus;
+      const reason = status === 'approved' ? null : prompt('Reason (sent to the lab):');
+      if (status !== 'approved' && !reason) return;
+      try { await api(`/api/admin/labs/${b.dataset.id}/status`, { method: 'POST', body: { status, reason } }); P.toast(`Lab ${status}`, 'success'); loadLabs(); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Lab test catalogue ----------
+    let testRows = [];
+    async function loadTests() {
+      testRows = await api(`/api/admin/lab-tests?q=${encodeURIComponent($('test-q').value.trim())}`);
+      $('test-body').innerHTML = P.table([
+        { label: 'Test', render: t => `<input class="t-name w-56 px-2 py-1 border border-slate-300 rounded" value="${escapeHtml(t.name)}" />` },
+        { label: 'Category', render: t => `<select class="t-cat px-2 py-1 border border-slate-300 rounded">${['Blood', 'Urine', 'Imaging', 'Cardiac', 'Other'].map(c => `<option ${c === t.category ? 'selected' : ''}>${c}</option>`).join('')}</select>` },
+        { label: 'MRP (₹)', num: true, render: t => `<input class="t-mrp w-20 px-2 py-1 border border-slate-300 rounded text-right" type="number" min="1" value="${t.mrp_paise ? t.mrp_paise / 100 : ''}" />` },
+        { label: 'Unit', render: t => `<input class="t-unit w-20 px-2 py-1 border border-slate-300 rounded" value="${escapeHtml(t.unit || '')}" />` },
+        { label: 'Normal low', num: true, render: t => `<input class="t-low w-20 px-2 py-1 border border-slate-300 rounded text-right" type="number" step="any" value="${t.ref_low ?? ''}" />` },
+        { label: 'Normal high', num: true, render: t => `<input class="t-high w-20 px-2 py-1 border border-slate-300 rounded text-right" type="number" step="any" value="${t.ref_high ?? ''}" />` },
+        { label: 'Labs pricing', key: 'priced_by', num: true },
+        { label: 'Ordered', key: 'ordered', num: true },
+        { label: '', render: (t, i) => `<button type="button" data-save-test="${i}" class="text-xs text-sky-700 hover:underline">Save</button>` },
+      ], testRows, { empty: 'No tests match.' });
+    }
+    let testTimer;
+    $('test-q').addEventListener('input', () => { clearTimeout(testTimer); testTimer = setTimeout(loadTests, 250); });
+    $('test-body').addEventListener('click', async e => {
+      const b = e.target.closest('[data-save-test]');
+      if (!b) return;
+      const t = testRows[b.dataset.saveTest], tr = b.closest('tr');
+      const num = sel => tr.querySelector(sel).value === '' ? null : Number(tr.querySelector(sel).value);
+      try {
+        await api(`/api/admin/lab-tests/${t.id}`, { method: 'PUT', body: { name: tr.querySelector('.t-name').value, category: tr.querySelector('.t-cat').value,
+          sample_type: t.sample_type, fasting: t.fasting, mrp: num('.t-mrp'), unit: tr.querySelector('.t-unit').value || null, ref_low: num('.t-low'), ref_high: num('.t-high') } });
+        P.toast('Saved', 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Tabs & start ----------
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('bg-white', t.dataset.tab === tab));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
+      ({ analytics: initAnalytics, companies: loadCompanies, labs: loadLabs, tests: loadTests, doctors: () => loadPartners('doctors'), pharmacies: () => loadPartners('pharmacies'), appointments: loadAppointments,
+         orders: loadOrders, settlements: () => { loadSettlements(); loadPayoutHistory(); }, catalogue: loadCatalogue,
+         users: loadUsers, activity: loadAudit })[tab]();
+    }
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+    // Every loader shows an inline error with Retry instead of leaving a blank panel
+    loadStats = P.guard(loadStats, 'stats');
+    loadPartners = P.guard(loadPartners);
+    loadDoctorFilter = P.guard(loadDoctorFilter);
+    loadAppointments = P.guard(loadAppointments, 'appt-body');
+    loadOrders = P.guard(loadOrders, 'order-body');
+    loadSettlements = P.guard(loadSettlements, 'settle-body');
+    loadCatalogue = P.guard(loadCatalogue, 'cat-body');
+    loadPayoutHistory = P.guard(loadPayoutHistory, 'payout-history');
+    loadUsers = P.guard(loadUsers, 'user-body');
+    loadAudit = P.guard(loadAudit, 'audit-body');
+    initAnalytics = P.guard(initAnalytics, 'an-tables');
+    loadAnalytics = P.guard(loadAnalytics, 'an-tables');
+    loadCompanies = P.guard(loadCompanies, 'co-body');
+    loadLabs = P.guard(loadLabs, 'lab-body');
+    loadTests = P.guard(loadTests, 'test-body');
+
+    (async () => {
+      await P.requireRole('admin');
+      $('filters').elements.date_from.value = P.isoDate(P.addDays(P.today(), -30));
+      loadStats();
+      loadDoctorFilter();
+      const start = location.hash.slice(1);
+      showTab(['analytics', 'companies', 'labs', 'tests', 'pharmacies', 'appointments', 'orders', 'settlements', 'catalogue', 'users', 'activity'].includes(start) ? start : 'doctors');
+      api('/api/admin/labs?status=pending').then(list => {
+        $('pending-labs').textContent = list.length;
+        $('pending-labs').classList.toggle('hidden', !list.length);
+      }).catch(() => {});
+      api('/api/admin/companies?status=pending').then(list => {
+        $('pending-companies').textContent = list.length;
+        $('pending-companies').classList.toggle('hidden', !list.length);
+      }).catch(() => {});
+    })().catch(P.fatal);
+  </script>
+</body>
+</html>

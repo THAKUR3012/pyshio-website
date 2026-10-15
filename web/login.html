@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Log in | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+  <header id="site-nav"></header>
+
+  <main class="max-w-md mx-auto px-4 py-12">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+      <div id="tabs" class="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-lg mb-6 text-sm font-medium">
+        <button data-mode="login" class="tab py-2 rounded-md">Log in</button>
+        <button data-mode="register" class="tab py-2 rounded-md">Create account</button>
+      </div>
+
+      <form id="login-form" class="mode space-y-4" data-mode="login">
+        <label class="block text-sm font-medium text-slate-700">Email
+          <input name="email" type="email" required autocomplete="email" class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" /></label>
+        <label class="block text-sm font-medium text-slate-700">Password
+          <input name="password" type="password" required autocomplete="current-password" class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" /></label>
+        <button class="w-full py-2.5 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Log in</button>
+        <button type="button" data-goto="forgot" class="w-full text-sm text-sky-700 hover:underline">Forgot password?</button>
+        <p class="text-xs text-center text-slate-500">Patients, doctors, pharmacies, pharma companies and medical representatives all log in here.</p>
+      </form>
+
+      <form id="register-form" class="mode space-y-4 hidden" data-mode="register">
+        <p class="text-sm text-slate-600">Create a patient account to book and manage appointments. <a href="/doctor#register" class="text-sky-700 hover:underline">Doctor?</a> · <a href="/pharmacy#register" class="text-sky-700 hover:underline">Pharmacy?</a> · <a href="/lab#register" class="text-sky-700 hover:underline">Lab?</a> · <a href="/company#register" class="text-sky-700 hover:underline">Pharma company?</a> Register there instead.</p>
+        <label class="block text-sm font-medium text-slate-700">Full name
+          <input name="name" required autocomplete="name" class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" /></label>
+        <label class="block text-sm font-medium text-slate-700">Email
+          <input name="email" type="email" required autocomplete="email" class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" /></label>
+        <label class="block text-sm font-medium text-slate-700">Mobile number
+          <input name="phone" type="tel" required autocomplete="tel" placeholder="+91 98765 43210" class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" /></label>
+        <label class="block text-sm font-medium text-slate-700">Password <span class="font-normal text-slate-500">(8+ characters)</span>
+          <input name="password" type="password" required minlength="8" autocomplete="new-password" class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" /></label>
+        <label class="flex items-start gap-2 text-sm text-slate-600">
+          <input name="share_consent" type="checkbox" required class="mt-1" />
+          <span>I agree to the <a href="/terms" target="_blank" class="text-sky-700 underline">terms</a> and that prescriptions my doctors issue on Pyshio are automatically shared with verified pharmacies near my home so they can quote their price. Pharmacies see the medicines and distance only; my name and phone go only to the pharmacy I order from. I can change this any time (<a href="/privacy" target="_blank" class="text-sky-700 underline">privacy policy</a>).</span>
+        </label>
+        <button class="w-full py-2.5 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Create account</button>
+      </form>
+
+      <form id="forgot-form" class="mode space-y-4 hidden" data-mode="forgot">
+        <h1 class="text-lg font-semibold">Reset your password</h1>
+        <p class="text-sm text-slate-600">We'll email you a link to choose a new password.</p>
+        <label class="block text-sm font-medium text-slate-700">Email
+          <input name="email" type="email" required class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" /></label>
+        <button class="w-full py-2.5 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Send reset link</button>
+        <button type="button" data-goto="login" class="w-full text-sm text-sky-700 hover:underline">Back to log in</button>
+      </form>
+
+      <form id="reset-form" class="mode space-y-4 hidden" data-mode="reset">
+        <h1 class="text-lg font-semibold">Choose a new password</h1>
+        <label class="block text-sm font-medium text-slate-700">New password <span class="font-normal text-slate-500">(8+ characters)</span>
+          <input name="password" type="password" required minlength="8" autocomplete="new-password" class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" /></label>
+        <button class="w-full py-2.5 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Save password</button>
+      </form>
+
+      <p id="msg" class="hidden"></p>
+    </div>
+  </main>
+
+  <script>
+    const P = Pyshio;
+    const { $, api } = P;
+    const HOME = { patient: '/account', doctor: '/doctor', pharmacy: '/pharmacy', admin: '/admin', company: '/company', mr: '/mr', lab: '/lab' };
+    const resetToken = (location.hash.match(/reset=([^&]+)/) || [])[1];
+
+    function setMode(mode) {
+      document.querySelectorAll('.mode').forEach(f => f.classList.toggle('hidden', f.dataset.mode !== mode));
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('bg-white', t.dataset.mode === mode));
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('shadow', t.dataset.mode === mode));
+      $('tabs').classList.toggle('hidden', mode === 'forgot' || mode === 'reset');
+      P.setMessage($('msg'), '', 'info');
+    }
+    document.querySelectorAll('[data-mode].tab, [data-goto]').forEach(b =>
+      b.addEventListener('click', () => setMode(b.dataset.mode || b.dataset.goto)));
+
+    function goHome(user) {
+      const next = new URLSearchParams(location.search).get('next');
+      // Only follow same-site paths, never another domain
+      const safe = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login');
+      location.href = safe ? next : HOME[user.role];
+    }
+
+    const formData = form => Object.fromEntries(new FormData(form).entries());
+
+    function handle(id, fn) {
+      $(id).addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button:not([type=button])');
+        btn.disabled = true;
+        try { await fn(formData(e.target)); }
+        catch (err) { P.setMessage($('msg'), err.message, 'error'); }
+        finally { btn.disabled = false; }
+      });
+    }
+
+    handle('login-form', async body => goHome((await api('/api/auth/login', { method: 'POST', body })).user));
+    handle('register-form', async body => goHome((await api('/api/auth/register', { method: 'POST', body: { ...body, share_consent: body.share_consent === 'on' } })).user));
+    handle('forgot-form', async body => {
+      const res = await api('/api/auth/forgot', { method: 'POST', body });
+      P.setMessage($('msg'), res.message, 'success');
+    });
+    handle('reset-form', async ({ password }) => {
+      const res = await api('/api/auth/reset', { method: 'POST', body: { token: resetToken, password } });
+      history.replaceState(null, '', '/login');
+      setMode('login');
+      P.setMessage($('msg'), res.message, 'success');
+    });
+
+    (async () => {
+      if (resetToken) return setMode('reset');
+      const { user } = await P.me();
+      if (user) return goHome(user);
+      setMode(location.hash === '#register' ? 'register' : 'login');
+    })();
+  </script>
+</body>
+</html>

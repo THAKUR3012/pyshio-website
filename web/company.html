@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Pharma Company Dashboard | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <script src="/features/assistant/assistant.js" defer></script>
+  <script src="/features/pharma_insights/insights.js"></script>
+  <style>
+    .field { margin-top: .25rem; width: 100%; padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: .5rem; background: #fff; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+  <header id="site-nav"></header>
+
+  <!-- ============ Registration ============ -->
+  <main id="register-view" class="hidden max-w-3xl mx-auto px-4 sm:px-6 py-10">
+    <h1 class="text-2xl font-bold text-slate-900">Register your pharma company</h1>
+    <p class="text-slate-600 mt-1 mb-4">Add your divisions and medical representatives, list your brands, and see how doctors who choose to share use them.
+      Already registered? <a href="/login?next=/company" class="text-sky-700 hover:underline font-medium">Log in</a>.</p>
+    <div class="mb-6 grid sm:grid-cols-2 gap-3 text-sm">
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p class="font-semibold text-emerald-900">What you get</p>
+        <ul class="mt-1 list-disc ml-5 text-emerald-900 space-y-0.5"><li>MR accounts by division and territory</li><li>Prescribing counts from doctors who opt in</li>
+          <li>Your brand share by salt and month</li><li>A logged meeting-request channel to doctors</li></ul></div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4"><p class="font-semibold text-slate-900">What you never get</p>
+        <ul class="mt-1 list-disc ml-5 text-slate-700 space-y-0.5"><li>Patient names, contacts, ages or diagnoses</li><li>Data from doctors who haven't opted in</li>
+          <li>Figures for groups smaller than 5</li><li>Other companies' MRs or data</li></ul></div>
+    </div>
+    <form id="register-form" method="post" action="#" onsubmit="return false" class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 space-y-6">
+      <fieldset class="grid sm:grid-cols-2 gap-4">
+        <legend class="font-semibold text-slate-900 mb-2 col-span-full">Your login</legend>
+        <label class="text-sm text-slate-600">Contact person<input name="name" required class="field" /></label>
+        <label class="text-sm text-slate-600">Mobile<input name="phone" required type="tel" class="field" /></label>
+        <label class="text-sm text-slate-600">Work email<input name="email" required type="email" class="field" /></label>
+        <label class="text-sm text-slate-600">Password (8+ characters)<input name="password" required minlength="8" type="password" class="field" /></label>
+      </fieldset>
+      <div class="company-fields"></div>
+      <label class="flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" required class="mt-1" />
+        <span>We will follow the Uniform Code for Pharmaceutical Marketing Practices (UCPMP 2024) and use doctor insights only for planning visits, never to offer gifts or benefits linked to prescribing.</span></label>
+      <button class="px-6 py-3 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700">Submit for verification</button>
+      <p id="reg-msg" class="hidden"></p>
+    </form>
+  </main>
+
+  <!-- ============ Dashboard ============ -->
+  <main id="app-view" class="hidden max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div id="status-banner" class="hidden rounded-lg border px-4 py-3 text-sm"></div>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div><h1 id="welcome" class="text-2xl font-bold text-slate-900"></h1><p id="sub" class="text-sm text-slate-500"></p></div>
+      <div class="flex flex-wrap gap-1 p-1 bg-slate-200/60 rounded-lg text-sm font-medium">
+        <button data-tab="insights" class="tab px-4 py-1.5 rounded-md">Insights</button>
+        <button data-tab="mrs" class="tab px-4 py-1.5 rounded-md">Medical reps</button>
+        <button data-tab="divisions" class="tab px-4 py-1.5 rounded-md">Divisions</button>
+        <button data-tab="brands" class="tab px-4 py-1.5 rounded-md">Brands</button>
+        <button data-tab="meetings" class="tab px-4 py-1.5 rounded-md">Meetings</button>
+        <button data-tab="profile" class="tab px-4 py-1.5 rounded-md">Profile</button>
+      </div>
+    </div>
+    <section id="counts" class="grid grid-cols-2 md:grid-cols-5 gap-3"></section>
+
+    <!-- Insights -->
+    <section data-panel="insights" class="panel space-y-4">
+      <form id="ins-filters" class="bg-white rounded-xl border border-slate-200 p-3 grid grid-cols-2 md:grid-cols-7 gap-3 text-sm items-end">
+        <label class="text-slate-600">Period<select name="days" class="field"><option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option>
+          <option value="180">Last 6 months</option><option value="365">Last 12 months</option></select></label>
+        <label class="text-slate-600">Division<select name="division_id" class="field"></select></label>
+        <label class="text-slate-600">State<select name="state" class="field"></select></label>
+        <label class="text-slate-600">City<input name="city" placeholder="All cities" class="field" /></label>
+        <label class="text-slate-600 md:col-span-2">Product<select name="product_id" class="field"><option value="">All your products</option></select></label>
+        <button class="px-4 py-2 bg-violet-600 text-white font-semibold rounded-lg">Show</button>
+      </form>
+      <div id="co-alerts"></div>
+      <div id="insights" class="space-y-4"></div>
+    </section>
+
+    <!-- MRs -->
+    <section data-panel="mrs" class="panel hidden space-y-4">
+      <form id="mr-form" class="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm items-end">
+        <p class="col-span-full font-semibold text-slate-900">Invite a medical representative <span class="font-normal text-xs text-slate-500">— they get an email to set their own password</span></p>
+        <label class="text-slate-600">Name<input name="name" required class="field" /></label>
+        <label class="text-slate-600">Work email<input name="email" type="email" required class="field" /></label>
+        <label class="text-slate-600">Mobile<input name="phone" required class="field" /></label>
+        <label class="text-slate-600">Employee code<input name="employee_code" class="field" /></label>
+        <label class="text-slate-600">Division<select name="division_id" class="field"></select></label>
+        <label class="text-slate-600">Territory state<select name="territory_state" required class="field"></select></label>
+        <label class="text-slate-600">Territory city<input name="territory_city" placeholder="Whole state" class="field" /></label>
+        <button class="px-4 py-2 bg-violet-600 text-white font-semibold rounded-lg">Send invite</button>
+        <p id="mr-msg" class="col-span-full hidden"></p>
+      </form>
+      <div id="mr-list" class="bg-white rounded-xl border border-slate-200 p-2"></div>
+    </section>
+
+    <!-- Divisions -->
+    <section data-panel="divisions" class="panel hidden grid lg:grid-cols-3 gap-4">
+      <form id="div-form" class="bg-white rounded-xl border border-slate-200 p-4 space-y-3 text-sm">
+        <h2 id="div-title" class="font-semibold text-slate-900">Add a division</h2>
+        <label class="block text-slate-600">Division name<input name="name" required placeholder="e.g. Cardio-Diabetes" class="field" /></label>
+        <div><p class="text-slate-600 mb-1">Care areas it covers</p><div id="div-areas" class="grid grid-cols-2 gap-1"></div></div>
+        <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" name="active" checked /> Active</label>
+        <div class="flex gap-2"><button class="px-4 py-2 bg-violet-600 text-white font-semibold rounded-lg">Save division</button>
+          <button type="button" id="div-cancel" class="hidden px-4 py-2 border border-slate-300 rounded-lg">Cancel</button></div>
+      </form>
+      <div id="div-list" class="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-2"></div>
+    </section>
+
+    <!-- Brands -->
+    <section data-panel="brands" class="panel hidden space-y-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
+        <p class="text-sm text-slate-600">Mark the catalogue medicines your company makes. Your share is worked out against all brands of the same salt. Claims are checked by the platform; a brand can belong to one company only.</p>
+        <input id="brand-q" placeholder="Search the medicine catalogue by brand or salt" class="field max-w-lg" />
+        <div id="brand-results"></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4"><h2 class="font-semibold mb-2">Your brands</h2><div id="brand-list"></div></div>
+    </section>
+
+    <!-- Meetings -->
+    <section data-panel="meetings" class="panel hidden bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold">Meeting requests by your MRs</h2>
+        <select id="meet-status" aria-label="Status" class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm">
+          <option value="">All</option><option value="pending">Waiting for doctor</option><option value="accepted">Accepted</option>
+          <option value="completed">Met</option><option value="declined">Declined</option><option value="cancelled">Cancelled</option></select>
+      </div>
+      <div id="meet-list"></div>
+      <p class="text-xs text-slate-500">This log of every request and outcome is kept for compliance (UCPMP 2024).</p>
+    </section>
+
+    <!-- Profile -->
+    <section data-panel="profile" class="panel hidden">
+      <form id="profile-form" class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 space-y-6 max-w-3xl">
+        <fieldset class="grid sm:grid-cols-2 gap-4">
+          <legend class="font-semibold text-slate-900 mb-2 col-span-full">Contact</legend>
+          <label class="text-sm text-slate-600">Contact person<input name="name" required class="field" /></label>
+          <label class="text-sm text-slate-600">Mobile<input name="phone" required class="field" /></label>
+        </fieldset>
+        <div class="company-fields"></div>
+        <button class="px-6 py-2.5 bg-violet-600 text-white font-semibold rounded-lg">Save profile</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Edit MR -->
+  <div id="mr-edit" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <form id="mr-edit-form" class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-3 text-sm">
+      <div class="flex items-center justify-between"><h2 class="font-semibold">Edit <span id="mr-edit-name"></span></h2>
+        <button type="button" data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button></div>
+      <label class="block text-slate-600">Division<select name="division_id" class="field"></select></label>
+      <label class="block text-slate-600">Employee code<input name="employee_code" class="field" /></label>
+      <label class="block text-slate-600">Territory state<select name="territory_state" required class="field"></select></label>
+      <label class="block text-slate-600">Territory city<input name="territory_city" placeholder="Whole state" class="field" /></label>
+      <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" name="active" /> Active (unticking signs them out and cancels their open meeting requests)</label>
+      <button class="w-full py-2.5 bg-violet-600 text-white font-semibold rounded-lg">Save</button>
+    </form>
+  </div>
+
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    let config, company, divisions = [], mrs = [], editingDivision = null, editingMr = null;
+
+    function companyFieldsHtml() {
+      return `<fieldset class="grid sm:grid-cols-2 gap-4">
+          <legend class="font-semibold text-slate-900 mb-2 col-span-full">Company</legend>
+          <label class="text-sm text-slate-600">Company name<input name="company_name" required class="field" /></label>
+          <label class="text-sm text-slate-600">CIN (company registration no.)<input name="cin" maxlength="30" class="field" /></label>
+          <label class="text-sm text-slate-600">GSTIN<input name="gstin" maxlength="20" class="field" /></label>
+          <label class="text-sm text-slate-600">Website<input name="website" class="field" placeholder="https://" /></label>
+          <label class="text-sm text-slate-600 col-span-full">Registered address<input name="address" required class="field" /></label>
+          <label class="text-sm text-slate-600">City<input name="city" required class="field" /></label>
+          <label class="text-sm text-slate-600">State<select name="state" class="field">${P.stateOptions(config.states)}</select></label>
+        </fieldset>`;
+    }
+    const readCompany = f => ({ company_name: f.company_name.value, cin: f.cin.value || null, gstin: f.gstin.value || null,
+      website: f.website.value || null, address: f.address.value, city: f.city.value, state: f.state.value || null });
+
+    // ---------- Registration ----------
+    function showRegister() {
+      $('register-view').classList.remove('hidden');
+      $('register-form').querySelector('.company-fields').innerHTML = companyFieldsHtml();
+      $('register-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const f = e.target.elements;
+        const btn = e.submitter;
+        if (btn) btn.disabled = true;
+        try {
+          await api('/api/auth/register-company', { method: 'POST', body: { name: f.name.value, phone: f.phone.value, email: f.email.value,
+            password: f.password.value, ...readCompany(f) } });
+          location.reload();
+        } catch (err) { P.setMessage($('reg-msg'), err.message, 'error'); if (btn) btn.disabled = false; }
+      });
+    }
+
+    // ---------- Dashboard ----------
+    const approved = () => company.status === 'approved';
+    function renderBanner() {
+      const b = $('status-banner');
+      const text = { pending: ['bg-amber-50 border-amber-200 text-amber-900', 'Your company is under review. You can set up divisions now; MR invites, brands and insights open once approved.'],
+        rejected: ['bg-red-50 border-red-200 text-red-800', `Your application wasn't approved${company.status_reason ? `: ${company.status_reason}` : ''}. Update your profile to apply again.`],
+        suspended: ['bg-red-50 border-red-200 text-red-800', `Your company is suspended${company.status_reason ? `: ${company.status_reason}` : ''}. Your MRs can't use the platform.`] }[company.status];
+      b.classList.toggle('hidden', !text);
+      if (text) { b.className = `rounded-lg border px-4 py-3 text-sm ${text[0]}`; b.textContent = text[1]; }
+    }
+    async function loadProfile() {
+      company = await api('/api/company/profile');
+      $('welcome').textContent = company.name;
+      $('sub').textContent = `${company.city}${company.state ? ', ' + company.state : ''} · ${company.status}`;
+      const c = company.counts;
+      const card = (label, v) => `<div class="bg-white rounded-xl border border-slate-200 p-3"><p class="text-xs text-slate-500">${label}</p><p class="text-xl font-bold text-right tabular-nums">${P.num(v)}</p></div>`;
+      $('counts').innerHTML = card('Active MRs', c.mrs) + card('Divisions', c.divisions) + card('Brands listed', c.brands)
+        + card('Meetings waiting', c.meetings_pending) + card('Meetings held', c.meetings_done);
+      renderBanner();
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('bg-white', t.dataset.tab === tab));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
+      history.replaceState(null, '', `#${tab}`);
+      ({ insights: loadInsights, mrs: loadMrs, divisions: loadDivisions, brands: loadBrands, meetings: loadMeetings, profile: fillProfile })[tab]();
+    }
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+    // ---------- Divisions ----------
+    async function loadDivisions() {
+      divisions = await api('/api/company/divisions');
+      fillDivisionSelects();
+      $('div-areas').innerHTML = config.care_areas.map(a => `<label class="flex items-center gap-1.5 text-xs"><input type="checkbox" name="care_areas" value="${escapeHtml(a)}" /> ${escapeHtml(a)}</label>`).join('');
+      $('div-list').innerHTML = P.table([
+        { label: 'Division', render: d => `<p class="font-medium">${escapeHtml(d.name)}</p>${d.active ? '' : '<p class="text-xs text-slate-500">Inactive</p>'}` },
+        { label: 'Care areas', render: d => d.care_areas.map(a => `<span class="inline-block mr-1 mb-1 px-2 py-0.5 rounded-full bg-violet-50 text-violet-800 text-xs">${escapeHtml(a)}</span>`).join('') },
+        { label: 'MRs', key: 'mrs', num: true },
+        { label: '', render: d => `<button type="button" data-edit-div="${d.id}" class="text-xs text-sky-700 hover:underline">Edit</button>` },
+      ], divisions, { empty: 'No divisions yet. Add one, e.g. “Cardio-Diabetes” covering Cardiology and Diabetes & Endocrine.' });
+    }
+    function fillDivisionSelects() {
+      const opts = '<option value="">No division (all care areas)</option>' + divisions.filter(d => d.active).map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
+      $('mr-form').elements.division_id.innerHTML = opts;
+      $('mr-edit-form').elements.division_id.innerHTML = opts;
+      $('ins-filters').elements.division_id.innerHTML = '<option value="">All care areas</option>' + divisions.filter(d => d.active).map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
+    }
+    function resetDivisionForm() {
+      editingDivision = null;
+      $('div-form').reset();
+      $('div-title').textContent = 'Add a division';
+      $('div-cancel').classList.add('hidden');
+    }
+    $('div-list').addEventListener('click', e => {
+      const b = e.target.closest('[data-edit-div]');
+      if (!b) return;
+      const d = divisions.find(x => x.id === Number(b.dataset.editDiv));
+      editingDivision = d.id;
+      const f = $('div-form').elements;
+      f.name.value = d.name; f.active.checked = d.active;
+      $('div-form').querySelectorAll('input[name=care_areas]').forEach(c => { c.checked = d.care_areas.includes(c.value); });
+      $('div-title').textContent = `Edit ${d.name}`;
+      $('div-cancel').classList.remove('hidden');
+    });
+    $('div-cancel').addEventListener('click', resetDivisionForm);
+    $('div-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      const body = { name: f.name.value, active: f.active.checked,
+        care_areas: [...e.target.querySelectorAll('input[name=care_areas]:checked')].map(c => c.value) };
+      if (!body.care_areas.length) return P.toast('Pick at least one care area', 'error');
+      try {
+        await api(editingDivision ? `/api/company/divisions/${editingDivision}` : '/api/company/divisions', { method: editingDivision ? 'PUT' : 'POST', body });
+        P.toast('Division saved', 'success');
+        resetDivisionForm(); loadDivisions(); loadProfile();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- MRs ----------
+    async function loadMrs() {
+      if (!divisions.length) { divisions = await api('/api/company/divisions'); fillDivisionSelects(); }
+      $('mr-form').classList.toggle('opacity-50', !approved());
+      mrs = await api('/api/company/mrs');
+      $('mr-list').innerHTML = P.table([
+        { label: 'Representative', render: m => `<p class="font-medium">${escapeHtml(m.name)}${m.active ? '' : ' <span class="text-xs text-red-600">(inactive)</span>'}</p><p class="text-xs text-slate-500">${escapeHtml(m.email)} · ${escapeHtml(m.phone || '')}</p>` },
+        { label: 'Employee code', key: 'employee_code' },
+        { label: 'Division', render: m => escapeHtml(m.division || 'All care areas') },
+        { label: 'Territory', render: m => escapeHtml([m.territory_city || 'Whole state', m.territory_state].join(', ')) },
+        { label: 'Requests', key: 'requests', num: true },
+        { label: 'Meetings held', key: 'meetings_done', num: true },
+        { label: 'Last login', render: m => m.last_login_at ? escapeHtml(P.prettyDate(m.last_login_at.slice(0, 10))) : '<span class="text-xs text-amber-700">Invite not used yet</span>' },
+        { label: '', render: m => `<button type="button" data-edit-mr="${m.id}" class="text-xs text-sky-700 hover:underline">Edit</button>` },
+      ], mrs, { empty: 'No MRs yet. Invite your first one above.' });
+    }
+    $('mr-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!approved()) return P.setMessage($('mr-msg'), 'Your company must be approved before inviting MRs.', 'error');
+      const f = e.target.elements;
+      try {
+        const mr = await api('/api/company/mrs', { method: 'POST', body: { name: f.name.value, email: f.email.value, phone: f.phone.value,
+          employee_code: f.employee_code.value || null, division_id: f.division_id.value ? Number(f.division_id.value) : null,
+          territory_state: f.territory_state.value, territory_city: f.territory_city.value || null } });
+        e.target.reset();
+        f.territory_state.value = company.state || '';
+        P.setMessage($('mr-msg'), `Invite sent to ${mr.email}.`, 'success');
+        loadMrs(); loadProfile();
+      } catch (err) { P.setMessage($('mr-msg'), err.message, 'error'); }
+    });
+    $('mr-list').addEventListener('click', e => {
+      const b = e.target.closest('[data-edit-mr]');
+      if (!b) return;
+      const m = mrs.find(x => x.id === Number(b.dataset.editMr));
+      editingMr = m.id;
+      const f = $('mr-edit-form').elements;
+      $('mr-edit-name').textContent = m.name;
+      f.division_id.value = m.division_id || '';
+      f.employee_code.value = m.employee_code || '';
+      f.territory_state.value = m.territory_state;
+      f.territory_city.value = m.territory_city || '';
+      f.active.checked = m.active;
+      P.openModal('mr-edit');
+    });
+    $('mr-edit-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        await api(`/api/company/mrs/${editingMr}`, { method: 'PUT', body: { division_id: f.division_id.value ? Number(f.division_id.value) : null,
+          employee_code: f.employee_code.value || null, territory_state: f.territory_state.value, territory_city: f.territory_city.value || null,
+          active: f.active.checked } });
+        P.closeModal('mr-edit'); P.toast('Saved', 'success'); loadMrs(); loadProfile();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Brands ----------
+    async function loadBrands() {
+      const own = await api('/api/company/brands');
+      $('brand-list').innerHTML = P.table([
+        { label: 'Brand', render: m => `<p class="font-medium">${escapeHtml(m.name)}</p>` },
+        { label: 'Salt', render: m => escapeHtml([m.generic_name, m.strength].filter(Boolean).join(' ') || '—') },
+        { label: 'Form', key: 'form' }, { label: 'Care area', key: 'care_area' },
+        { label: '', render: m => `<button type="button" data-release="${m.id}" class="text-xs text-red-600 hover:underline">Remove</button>` },
+      ], own, { empty: 'No brands listed yet. Search the catalogue above.' });
+    }
+    let brandTimer;
+    $('brand-q').addEventListener('input', () => {
+      clearTimeout(brandTimer);
+      brandTimer = setTimeout(P.guard(async () => {
+        const q = $('brand-q').value.trim();
+        if (q.length < 2) { $('brand-results').innerHTML = ''; return; }
+        const list = await api(`/api/company/brands?q=${encodeURIComponent(q)}`);
+        $('brand-results').innerHTML = P.table([
+          { label: 'Medicine', render: m => `<p class="font-medium">${escapeHtml(m.name)}</p><p class="text-xs text-slate-500">${escapeHtml([m.generic_name, m.strength, m.form].filter(Boolean).join(' · '))}</p>` },
+          { label: 'Care area', key: 'care_area' },
+          { label: 'Listed by', render: m => m.own ? '<span class="text-violet-700 font-medium">You</span>' : escapeHtml(m.manufacturer || '—') },
+          { label: '', render: m => m.own ? `<button type="button" data-release="${m.id}" class="text-xs text-red-600 hover:underline">Remove</button>`
+              : m.claimed_by_other ? '<span class="text-xs text-slate-400">Another company</span>'
+              : `<button type="button" data-claim="${m.id}" class="px-2 py-1 bg-violet-600 text-white rounded text-xs">This is ours</button>` },
+        ], list, { empty: 'Not in the catalogue. Ask a pharmacy or doctor to add it, or contact support.' });
+      }, 'brand-results'), 250);
+    });
+    document.addEventListener('click', async e => {
+      const claim = e.target.closest('[data-claim]'), release = e.target.closest('[data-release]');
+      if (!claim && !release) return;
+      try {
+        if (claim) await api(`/api/company/brands/${claim.dataset.claim}`, { method: 'POST' });
+        if (release && confirm('Remove this brand from your list?')) await api(`/api/company/brands/${release.dataset.release}`, { method: 'DELETE' });
+        $('brand-q').dispatchEvent(new Event('input'));
+        loadBrands(); loadProfile();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Insights ----------
+    async function loadInsights() {
+      if (!approved()) { $('insights').innerHTML = '<p class="text-sm text-slate-500">Insights open once your company is approved.</p>'; return; }
+      if (!divisions.length) { divisions = await api('/api/company/divisions'); fillDivisionSelects(); }
+      const params = new URLSearchParams();
+      for (const [k, v] of new FormData($('ins-filters'))) if (String(v).trim()) params.set(k, String(v).trim());
+      const [data, alerts] = await Promise.all([api(`/api/company/insights?${params}`), api('/api/company/alerts').catch(() => [])]);
+      $('co-alerts').innerHTML = alerts.length ? `<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm">
+          <p class="font-semibold text-amber-900">Unusual changes this month</p>
+          ${alerts.slice(0, 8).map(a => `<p class="text-amber-900">${escapeHtml(a.message)} <span class="text-xs text-amber-700">(${escapeHtml(a.week)})</span></p>`).join('')}
+          <p class="text-xs text-amber-800 mt-1">Compared with the usual rate on Pyshio. Small groups are never shown.</p></div>` : '';
+      PyshioInsights.render($('insights'), data, { chartPrefix: 'co' });
+      const sel = $('ins-filters').elements.product_id;
+      if (sel.options.length <= 1) {
+        const own = await api('/api/company/brands');
+        sel.innerHTML = '<option value="">All your products</option>' + own.map(m => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
+      }
+    }
+    $('ins-filters').addEventListener('submit', e => { e.preventDefault(); loadInsights(); });
+
+    // ---------- Meetings ----------
+    const MEET = { pending: ['Waiting for doctor', 'bg-amber-100 text-amber-800'], accepted: ['Accepted', 'bg-sky-100 text-sky-800'],
+      declined: ['Declined', 'bg-slate-200 text-slate-600'], completed: ['Met', 'bg-emerald-100 text-emerald-800'], cancelled: ['Cancelled', 'bg-slate-200 text-slate-600'] };
+    async function loadMeetings() {
+      const status = $('meet-status').value;
+      const list = await api(`/api/company/meetings${status ? `?status=${status}` : ''}`);
+      $('meet-list').innerHTML = P.table([
+        { label: 'Requested', render: r => escapeHtml(P.prettyDate(r.created_at.slice(0, 10))) },
+        { label: 'MR', key: 'mr_name' },
+        { label: 'Doctor', render: r => `<p>${escapeHtml(r.doctor_name)}</p><p class="text-xs text-slate-500">${escapeHtml(r.clinic_name)}, ${escapeHtml(r.doctor_city)}</p>` },
+        { label: 'Division', key: 'division_name' },
+        { label: 'Purpose', render: r => `${escapeHtml(r.purpose)}${r.products ? `<p class="text-xs text-slate-500">${escapeHtml(r.products)}</p>` : ''}` },
+        { label: 'Status', render: r => { const [l, c] = MEET[r.status]; return `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${c}">${l}</span>`
+            + (r.scheduled_for ? `<p class="text-xs text-slate-600 mt-1">${escapeHtml(r.scheduled_for.replace('T', ' '))}</p>` : '')
+            + (r.doctor_note ? `<p class="text-xs text-slate-500">${escapeHtml(r.doctor_note)}</p>` : ''); } },
+      ], list, { empty: 'No meeting requests yet.' });
+    }
+    $('meet-status').addEventListener('change', loadMeetings);
+
+    // ---------- Profile ----------
+    function fillProfile() {
+      const f = $('profile-form').elements;
+      f.name.value = company.contact_name; f.phone.value = company.phone || '';
+      f.company_name.value = company.name;
+      ['cin', 'gstin', 'website', 'address', 'city', 'state'].forEach(k => { f[k].value = company[k] || ''; });
+    }
+    $('profile-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        const res = await api('/api/company/profile', { method: 'PUT', body: { name: f.name.value, phone: f.phone.value, ...readCompany(f) } });
+        await loadProfile();
+        P.toast(res.reverification_required ? 'Saved. Your company will be reviewed again.' : 'Saved', 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    loadDivisions = P.guard(loadDivisions, 'div-list');
+    loadMrs = P.guard(loadMrs, 'mr-list');
+    loadBrands = P.guard(loadBrands, 'brand-list');
+    loadInsights = P.guard(loadInsights, 'insights');
+    loadMeetings = P.guard(loadMeetings, 'meet-list');
+
+    (async () => {
+      config = await api('/api/config');
+      const { user } = await P.me();
+      if (!user) return showRegister();
+      if (user.role !== 'company') { location.href = P.DASHBOARD[user.role][0]; return; }
+      $('app-view').classList.remove('hidden');
+      $('profile-form').querySelector('.company-fields').innerHTML = companyFieldsHtml();
+      $('mr-form').elements.territory_state.innerHTML = P.stateOptions(config.states);
+      $('mr-edit-form').elements.territory_state.innerHTML = P.stateOptions(config.states);
+      $('ins-filters').elements.state.innerHTML = P.stateOptions(config.states, '', 'All states');
+      await loadProfile();
+      $('mr-form').elements.territory_state.value = company.state || '';
+      const start = location.hash.slice(1);
+      showTab(['insights', 'mrs', 'divisions', 'brands', 'meetings', 'profile'].includes(start) ? start : (approved() ? 'insights' : 'divisions'));
+    })().catch(P.fatal);
+  </script>
+</body>
+</html>

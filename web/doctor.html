@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Book a Doctor | Pyshio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <script src="/features/family/family.js" defer></script>
+  <style>
+    .slot-btn.selected { background:#0284c7; color:#fff; border-color:#0284c7; }
+    .slot-btn:disabled { background:#f1f5f9; color:#94a3b8; cursor:not-allowed; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50">
+  <header id="site-nav"></header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    <div id="preview-banner" class="hidden mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3"></div>
+    <div id="not-found" class="hidden text-center py-20">
+      <h1 class="text-2xl font-bold mb-2">Doctor not found</h1>
+      <a href="/" class="text-sky-700 hover:underline">Browse doctors near you</a>
+    </div>
+
+    <div id="content" class="hidden grid lg:grid-cols-5 gap-6">
+      <!-- Profile -->
+      <section class="lg:col-span-2 space-y-5">
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="flex items-start gap-4">
+            <div id="d-initials" class="w-16 h-16 rounded-full bg-sky-600 text-white flex items-center justify-center text-xl font-bold shrink-0"></div>
+            <div>
+              <h1 id="d-name" class="text-xl font-bold text-slate-900"></h1>
+              <p id="d-qual" class="text-sm text-slate-600"></p>
+              <p id="d-visits" class="hidden mt-1 text-sm text-violet-800"></p>
+              <p id="d-council" class="text-xs text-slate-500 mt-1"></p>
+            </div>
+          </div>
+          <div id="d-specs" class="flex flex-wrap gap-1.5 mt-4"></div>
+          <p id="d-bio" class="text-sm text-slate-700 mt-4 whitespace-pre-line"></p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 text-sm space-y-3">
+          <h2 class="font-semibold text-slate-900">Patient reviews <span id="d-rating" class="font-normal text-amber-600"></span></h2>
+          <div id="d-reviews" class="space-y-3"></div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 text-sm space-y-3">
+          <h2 class="font-semibold text-slate-900">Clinic</h2>
+          <p id="d-clinic" class="text-slate-700"></p>
+          <div>
+            <h3 class="font-semibold text-slate-900 mb-1">Hours</h3>
+            <ul id="d-hours" class="text-slate-600 space-y-0.5"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Booking -->
+      <section class="lg:col-span-3 bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+        <h2 class="text-lg font-semibold text-slate-900">Book an appointment</h2>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1" for="service">Service</label>
+          <select id="service" class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"></select>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <button id="prev-day" class="p-2 rounded-lg hover:bg-slate-100" aria-label="Previous day">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <div class="text-center">
+              <p id="day-label" class="font-semibold text-slate-900"></p>
+              <input id="day-picker" type="date" class="text-xs text-slate-500 bg-transparent text-center" />
+            </div>
+            <button id="next-day" class="p-2 rounded-lg hover:bg-slate-100" aria-label="Next day">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          <div id="slots" class="grid grid-cols-3 sm:grid-cols-4 gap-2"></div>
+        </div>
+
+        <fieldset id="visit-type" class="hidden space-y-2">
+          <legend class="text-sm font-medium text-slate-700 mb-1">Where</legend>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <label class="flex items-start gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer has-[:checked]:border-sky-500 has-[:checked]:bg-sky-50">
+              <input type="radio" name="visit" value="clinic" checked class="mt-1" /><span><span class="font-medium">🏥 Clinic visit</span><br><span class="text-xs text-slate-500">Go to the clinic</span></span></label>
+            <label id="home-option" class="hidden flex items-start gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
+              <input type="radio" name="visit" value="home" class="mt-1" /><span><span class="font-medium">🏠 Home visit</span><br><span id="home-hint" class="text-xs text-slate-500"></span></span></label>
+            <label id="video-option" class="hidden flex items-start gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+              <input type="radio" name="visit" value="video" class="mt-1" /><span><span class="font-medium">🎥 Video consult</span><br><span id="video-hint" class="text-xs text-slate-500">From home, on your phone or laptop</span></span></label>
+          </div>
+          <p id="video-box" class="hidden text-xs text-emerald-800">You'll get a private video link. It opens 10 minutes before your time, from My appointments; nothing to install.</p>
+          <div id="home-box" class="hidden space-y-1">
+            <label class="block text-sm text-slate-700" for="visit-address">Address for the visit</label>
+            <input id="visit-address" maxlength="300" class="w-full px-3 py-2.5 border border-slate-300 rounded-lg" placeholder="Flat, building, street, area" />
+            <p class="text-xs text-amber-800">The time you pick is your preference. The doctor will send the final charges (visit fee + travel) and time; your visit is booked once you accept.</p>
+          </div>
+        </fieldset>
+
+        <div id="for-box" class="hidden">
+          <label class="block text-sm font-medium text-slate-700 mb-1" for="for-member">Who is this appointment for?</label>
+          <select id="for-member" class="w-full px-3 py-2.5 border border-slate-300 rounded-lg"></select>
+          <p class="text-xs text-slate-500 mt-1">Add family members in <a href="/account#profile" class="text-sky-700 hover:underline">My health → Profile</a>.</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1" for="reason">Reason for visit / comments for the doctor (optional)</label>
+          <textarea id="reason" rows="2" maxlength="1000" placeholder="e.g. Lower back pain for 2 weeks" class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none resize-none"></textarea>
+        </div>
+
+        <fieldset id="pay-options" class="space-y-2">
+          <legend class="text-sm font-medium text-slate-700 mb-1">Payment</legend>
+        </fieldset>
+
+        <div class="flex items-center justify-between border-t border-slate-200 pt-4">
+          <div><p class="text-xs text-slate-500">Fee</p><p id="fee" class="text-xl font-bold text-slate-900"></p></div>
+          <button id="book-btn" disabled class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-xl hover:bg-sky-700 disabled:bg-slate-300 disabled:cursor-not-allowed">Select a time</button>
+        </div>
+        <p id="book-msg" class="hidden"></p>
+        <div id="success" class="hidden rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-900"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const slug = decodeURIComponent(location.pathname.split('/').pop());
+    let doctor, config, day = P.today(), selected = null, renderSeq = 0;
+
+    const service = () => doctor.services.find(s => String(s.id) === $('service').value);
+    const lastDay = () => P.addDays(P.today(), config.max_advance_days);
+
+    function renderProfile() {
+      document.title = `${doctor.name} – Book online | Pyshio`;
+      $('d-initials').textContent = doctor.name.replace(/^dr\.?\s*/i, '').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+      $('d-name').textContent = doctor.name;
+      $("d-qual").textContent = `${doctor.category_label} · ${doctor.qualification} · ${doctor.experience_years} years experience`;
+      $('d-council').textContent = doctor.registration_council ? `Registered with ${doctor.registration_council}` : '';
+      if (doctor.visited_count) {
+        $('d-visits').textContent = `You've visited ${doctor.visited_count} time${doctor.visited_count > 1 ? 's' : ''} · last on ${P.prettyDate(doctor.last_visit)}. Book a follow-up below.`;
+        $('d-visits').classList.remove('hidden');
+      }
+      $('d-specs').innerHTML = doctor.specialities.map(s => `<span class="px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 text-xs">${escapeHtml(s)}</span>`).join('');
+      $('d-bio').textContent = doctor.bio || '';
+      $('d-clinic').innerHTML = `<strong>${escapeHtml(doctor.clinic_name)}</strong><br>${escapeHtml(doctor.address)}, ${escapeHtml(doctor.city)}${doctor.pincode ? ' – ' + escapeHtml(doctor.pincode) : ''}`;
+      const byDay = WEEKDAYS.map((name, i) => {
+        const ranges = doctor.hours.filter(h => h.weekday === i).map(h => `${P.prettyTime(h.start_time)}–${P.prettyTime(h.end_time)}`);
+        return `<li class="flex justify-between gap-4"><span>${name}</span><span>${ranges.length ? ranges.join(', ') : 'Closed'}</span></li>`;
+      });
+      $('d-hours').innerHTML = byDay.join('');
+      $('service').innerHTML = doctor.services.map(s => `<option value="${s.id}">${escapeHtml(s.name)} · ${s.duration} min · ${P.rupees(s.fee)}</option>`).join('');
+
+      const options = [];
+      if (doctor.accepts_online_payment) options.push(['online', 'Pay online now', 'UPI, cards, netbanking via Razorpay. Refundable if cancelled ' + config.refund_cutoff_hours + 'h+ before.']);
+      if (doctor.accepts_clinic_payment) options.push(['clinic', 'Pay at clinic', 'Pay the doctor at your visit.']);
+      $('pay-options').insertAdjacentHTML('beforeend', options.map(([v, label, hint], i) => `
+        <label class="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer has-[:checked]:border-sky-500 has-[:checked]:bg-sky-50">
+          <input type="radio" name="pay" value="${v}" ${i === 0 ? 'checked' : ''} class="mt-1" />
+          <span><span class="font-medium text-slate-900">${label}</span><br><span class="text-xs text-slate-500">${hint}</span></span>
+        </label>`).join(''));
+      if (doctor.offers_video) {
+        $('visit-type').classList.remove('hidden');
+        $('video-option').classList.remove('hidden');
+        if (doctor.video_fee != null) $('video-hint').textContent = `From home · ${P.rupees(doctor.video_fee)}`;
+      }
+      if (doctor.offers_home_visits) {
+        $('visit-type').classList.remove('hidden');
+        $('home-option').classList.remove('hidden');
+        $('home-hint').textContent = `Within ${doctor.home_visit_radius_km} km${doctor.home_visit_fee ? ` · travel from ${P.rupees(doctor.home_visit_fee)}` : ''}`;
+        P.me().then(m => { if (m.home && m.home.address) $('visit-address').value = m.home.address; });
+      }
+      updateFee();
+    }
+    const visitType = () => (document.querySelector('input[name=visit]:checked') || {}).value || 'clinic';
+    const isHome = () => visitType() === 'home';
+    document.addEventListener('change', e => {
+      if (e.target.name !== 'visit') return;
+      $('home-box').classList.toggle('hidden', !isHome());
+      $('video-box').classList.toggle('hidden', visitType() !== 'video');
+      // "Pay at clinic" reads oddly for a video call
+      const clinicPay = document.querySelector('input[name=pay][value=clinic]');
+      if (clinicPay) {
+        const [title, hint] = clinicPay.parentElement.querySelectorAll('span > span');
+        const video = visitType() === 'video';
+        if (title) title.textContent = video ? 'Pay after the consult' : 'Pay at clinic';
+        if (hint) hint.textContent = video ? 'Pay the doctor directly after your video call.' : 'Pay the doctor at your visit.';
+      }
+      $('pay-options').classList.toggle('hidden', isHome());
+      updateFee();
+    });
+
+    function updateFee() {
+      const s = service();
+      const fee = s && visitType() === 'video' && doctor.video_fee != null ? doctor.video_fee : (s ? s.fee : 0);
+      $('fee').textContent = s ? (isHome() ? `${P.rupees(s.fee)}${doctor.home_visit_fee ? ` + ${P.rupees(doctor.home_visit_fee)} travel` : ''} (doctor confirms)` : P.rupees(fee)) : '—';
+      const free = s && fee === 0;
+      document.querySelectorAll('input[name=pay][value=online]').forEach(r => { r.disabled = free; if (free) { r.checked = false; const c = document.querySelector('input[name=pay][value=clinic]'); if (c) c.checked = true; } });
+    }
+
+    async function renderSlots() {
+      const seq = ++renderSeq;
+      selected = null;
+      $('book-btn').disabled = true;
+      $('book-btn').textContent = 'Select a time';
+      $('day-label').textContent = P.longDate(day);
+      $('day-picker').value = P.isoDate(day);
+      $('slots').innerHTML = '<p class="col-span-full text-sm text-slate-500 py-3 text-center">Loading…</p>';
+      let data;
+      try {
+        data = await api(`/api/doctors/${encodeURIComponent(slug)}/slots?date=${P.isoDate(day)}&service_id=${$('service').value}`);
+      } catch (err) {
+        if (seq === renderSeq) $('slots').innerHTML = `<p class="col-span-full text-sm text-red-600 py-3 text-center">${escapeHtml(err.message)}</p>`;
+        return;
+      }
+      if (seq !== renderSeq) return;
+      if (!data.open || !data.all_slots.length) {
+        $('slots').innerHTML = `<p class="col-span-full text-sm text-slate-500 py-3 text-center">${escapeHtml(data.message || 'Not available on this day')}</p>`;
+        return;
+      }
+      const free = new Set(data.slots);
+      $('slots').innerHTML = (free.size ? '' : '<p class="col-span-full text-sm text-slate-500 text-center pb-1">Fully booked — try another day.</p>') +
+        data.all_slots.map(t => `<button type="button" data-time="${t}" class="slot-btn px-2 py-2.5 text-sm font-medium rounded-lg border border-slate-300 bg-white hover:border-sky-400" ${free.has(t) ? '' : 'disabled'}>${P.prettyTime(t)}</button>`).join('');
+    }
+
+    $('slots').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-time]');
+      if (!btn || btn.disabled) return;
+      document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selected = btn.dataset.time;
+      $('book-btn').disabled = false;
+      $('book-btn').textContent = `Book ${P.prettyTime(selected)}`;
+    });
+
+    function go(newDay) {
+      if (newDay < P.today() || newDay > lastDay()) return;
+      day = newDay;
+      renderSlots();
+    }
+    $('prev-day').addEventListener('click', () => go(P.addDays(day, -1)));
+    $('next-day').addEventListener('click', () => go(P.addDays(day, 1)));
+    $('day-picker').addEventListener('change', e => e.target.value && go(P.fromIso(e.target.value)));
+    $('service').addEventListener('change', () => { updateFee(); renderSlots(); });
+
+    function showSuccess(appt, extra = '') {
+      if (appt.visit_type === 'home') {
+        $('success').innerHTML = `<p class="font-semibold text-base mb-1">✓ Home-visit request sent</p>
+          <p>${escapeHtml(appt.doctor_name)} will send the charges and confirm the time for ${escapeHtml(P.prettyDate(appt.appointment_date))} around ${escapeHtml(P.prettyTime(appt.appointment_time))}.</p>
+          <p class="mt-2">Reference <strong>${escapeHtml(appt.reference)}</strong>. We'll email you; accept the charges in My appointments to confirm.</p>
+          <p class="mt-3"><a href="/account" class="font-semibold underline">View my appointments</a></p>`;
+        $('success').classList.remove('hidden');
+        return;
+      }
+      $('success').innerHTML = `<p class="font-semibold text-base mb-1">✓ ${appt.visit_type === 'video' ? 'Video consultation booked' : 'Booking confirmed'}</p>
+        ${appt.member_name ? `<p>For ${escapeHtml(appt.member_name)} (${escapeHtml(appt.member_relation)})</p>` : ''}
+        ${appt.visit_type === 'video' ? '<p>Join from My appointments; the room opens 10 minutes before your time.</p>' : ''}
+        <p>${escapeHtml(appt.service_name)} with ${escapeHtml(appt.doctor_name)}<br>
+        ${escapeHtml(P.prettyDate(appt.appointment_date))} at ${escapeHtml(P.prettyTime(appt.appointment_time))}</p>
+        <p class="mt-2">Reference <strong>${escapeHtml(appt.reference)}</strong> · ${escapeHtml(P.paymentLabel(appt))}</p>
+        ${extra}<p class="mt-3"><a href="/account" class="font-semibold underline">View my appointments</a></p>`;
+      $('success').classList.remove('hidden');
+    }
+
+    $('book-btn').addEventListener('click', async () => {
+      const { user } = await P.me();
+      if (!user) {
+        try {
+          sessionStorage.setItem('pyshio-draft', JSON.stringify({ slug, service: $('service').value, date: P.isoDate(day),
+            time: selected, reason: $('reason').value, pay: (document.querySelector('input[name=pay]:checked') || {}).value }));
+        } catch {}
+        location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
+        return;
+      }
+      if (user.role !== 'patient') {
+        P.setMessage($('book-msg'), 'Please log in with a patient account to book.', 'error');
+        return;
+      }
+      const home = isHome();
+      const method = home ? 'clinic' : (document.querySelector('input[name=pay]:checked') || {}).value;
+      if (!method) { P.setMessage($('book-msg'), 'Choose a payment option.', 'error'); return; }
+      if (home && !$('visit-address').value.trim()) { P.setMessage($('book-msg'), 'Enter the address for the home visit.', 'error'); return; }
+      $('book-btn').disabled = true;
+      $('book-btn').textContent = 'Booking…';
+      P.setMessage($('book-msg'), '', 'info');
+      $('success').classList.add('hidden');
+      try {
+        const res = await api('/api/appointments', { method: 'POST', body: {
+          doctor_slug: slug, service_id: Number($('service').value), appointment_date: P.isoDate(day),
+          appointment_time: selected, reason: $('reason').value.trim() || null, payment_method: method,
+          visit_type: visitType(), visit_address: home ? $('visit-address').value.trim() : null,
+          family_member_id: $('for-member').value ? Number($('for-member').value) : null,
+        }});
+        if (res.payment) {
+          $('book-btn').textContent = 'Waiting for payment…';
+          try {
+            const result = await P.payOnline(res.appointment.id, res.payment);
+            if (result.outcome === 'confirmed') showSuccess(result.appointment);
+            else P.setMessage($('book-msg'), 'Your payment arrived after the slot was taken. A full refund has been issued.', 'error');
+          } catch (err) {
+            P.setMessage($('book-msg'), err.message, 'error');
+          }
+        } else {
+          showSuccess(res.appointment);
+        }
+        $('reason').value = '';
+      } catch (err) {
+        P.setMessage($('book-msg'), err.message, 'error');
+      }
+      renderSlots();
+    });
+
+    (async () => {
+      try {
+        [config, doctor] = await Promise.all([api('/api/config'), api(`/api/doctors/${encodeURIComponent(slug)}`)]);
+      } catch (err) {
+        $('not-found').classList.remove('hidden');
+        return;
+      }
+      if (doctor.status !== 'approved') {
+        $('preview-banner').textContent = 'Preview: this profile is not visible to patients until it is approved.';
+        $('preview-banner').classList.remove('hidden');
+      }
+      $('content').classList.remove('hidden');
+      $('day-picker').min = P.isoDate(P.today());
+      $('day-picker').max = P.isoDate(lastDay());
+      renderProfile();
+      const params = new URLSearchParams(location.search);
+      if (params.get('service') && doctor.services.some(s => String(s.id) === params.get('service'))) {
+        $('service').value = params.get('service');
+        updateFee();
+      }
+      P.me().then(async m => {
+        if (!m.user || m.user.role !== 'patient' || !window.FamilyCard) return;
+        const family = await FamilyCard.list().catch(() => []);
+        if (!family.length) return;
+        $('for-member').innerHTML = FamilyCard.options(family, params.get('for'));
+        $('for-box').classList.remove('hidden');
+      });
+      // Restore a booking started before logging in
+      let draft = null;
+      try { draft = JSON.parse(sessionStorage.getItem('pyshio-draft') || 'null'); sessionStorage.removeItem('pyshio-draft'); } catch {}
+      if (draft && draft.slug === slug) {
+        if (doctor.services.some(s => String(s.id) === draft.service)) $('service').value = draft.service;
+        if (draft.date && P.fromIso(draft.date) >= P.today()) day = P.fromIso(draft.date);
+        $('reason').value = draft.reason || '';
+        const pay = document.querySelector(`input[name=pay][value="${draft.pay}"]`);
+        if (pay) pay.checked = true;
+        updateFee();
+      }
+      await renderSlots();
+      const slot = draft && draft.slug === slug && draft.time && document.querySelector(`#slots button[data-time="${draft.time}"]:not([disabled])`);
+      if (slot) { slot.click(); P.toast('Welcome back! Your chosen time is still selected — tap Book to confirm.', 'success'); }
+      loadReviews();
+    })();
+
+    async function loadReviews() {
+      $('d-rating').textContent = doctor.rating ? `★ ${doctor.rating} · ${doctor.rating_count} review${doctor.rating_count > 1 ? 's' : ''}` : '';
+      try {
+        const list = await api(`/api/reviews?target_role=doctor&target_id=${doctor.id}`);
+        $('d-reviews').innerHTML = list.length ? list.map(r => `<div class="border-b border-slate-100 pb-2">
+            <p class="text-amber-500" aria-label="${r.rating} out of 5">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</p>
+            ${r.comment ? `<p class="text-slate-700">${escapeHtml(r.comment)}</p>` : ''}
+            <p class="text-xs text-slate-500">${escapeHtml(r.by)} · ${escapeHtml(P.prettyDate(r.date))}</p></div>`).join('')
+          : '<p class="text-slate-500">No reviews yet. Patients can rate after their visit.</p>';
+      } catch { $('d-reviews').innerHTML = ''; }
+    }
+  </script>
+</body>
+</html>

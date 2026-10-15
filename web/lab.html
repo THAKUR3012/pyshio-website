@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Lab Dashboard | Pyshio</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+  <script src="/features/assistant/assistant.js" defer></script>
+  <script src="/features/prescription_uploads/partner-uploads.js"></script>
+  <style>
+    .field { margin-top: .25rem; width: 100%; padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: .5rem; background: #fff; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50 min-h-screen">
+  <header id="site-nav"></header>
+
+  <!-- ============ Registration ============ -->
+  <main id="register-view" class="hidden max-w-3xl mx-auto px-4 sm:px-6 py-10">
+    <h1 class="text-2xl font-bold text-slate-900">Register your diagnostic lab</h1>
+    <p class="text-slate-600 mt-1 mb-6">Get test requests from doctors' prescriptions for patients within <span data-config="radius_km">3</span> km, win bookings with your best price and fastest report, and deliver reports online.
+      Already registered? <a href="/login?next=/lab" class="text-sky-700 hover:underline font-medium">Log in</a>.</p>
+    <form id="register-form" method="post" action="#" onsubmit="return false" class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 space-y-6">
+      <fieldset class="grid sm:grid-cols-2 gap-4">
+        <legend class="font-semibold text-slate-900 mb-2 col-span-full">Login</legend>
+        <label class="text-sm text-slate-600">Contact person<input name="name" required class="field" /></label>
+        <label class="text-sm text-slate-600">Mobile<input name="phone" required type="tel" class="field" /></label>
+        <label class="text-sm text-slate-600">Email<input name="email" required type="email" class="field" /></label>
+        <label class="text-sm text-slate-600">Password (8+ characters)<input name="password" required minlength="8" type="password" class="field" /></label>
+      </fieldset>
+      <div class="lab-fields"></div>
+      <button class="px-6 py-3 bg-cyan-600 text-white font-semibold rounded-xl hover:bg-cyan-700">Submit for verification</button>
+      <p id="reg-msg" class="hidden"></p>
+    </form>
+  </main>
+
+  <!-- ============ Dashboard ============ -->
+  <main id="app-view" class="hidden max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div id="status-banner" class="hidden rounded-lg border px-4 py-3 text-sm"></div>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 id="welcome" class="text-2xl font-bold text-slate-900"></h1>
+      <div class="flex flex-wrap gap-1 p-1 bg-slate-200/60 rounded-lg text-sm font-medium">
+        <button data-tab="requests" class="tab px-4 py-1.5 rounded-md">Test requests <span id="req-count" class="hidden ml-1 px-1.5 rounded-full bg-cyan-600 text-white text-xs"></span></button>
+        <button data-tab="uploads" class="tab px-4 py-1.5 rounded-md">Uploaded prescriptions <span id="up-count" class="hidden ml-1 px-1.5 rounded-full bg-cyan-600 text-white text-xs"></span></button>
+        <button data-tab="bookings" class="tab px-4 py-1.5 rounded-md">Bookings <span id="book-count" class="hidden ml-1 px-1.5 rounded-full bg-red-600 text-white text-xs"></span></button>
+        <button data-tab="prices" class="tab px-4 py-1.5 rounded-md">Test prices</button>
+        <button data-tab="profile" class="tab px-4 py-1.5 rounded-md">Profile</button>
+      </div>
+    </div>
+    <section id="stats" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"></section>
+    <div id="outcomes"></div>
+
+    <section data-panel="requests" class="panel space-y-3">
+      <p class="text-sm text-slate-500">Tests doctors prescribed for patients near you. You see the tests and distance only; the patient's details come with a booking. Your price list fills in a quote automatically; send a better one to move up.</p>
+      <div id="requests" class="space-y-3"></div>
+    </section>
+
+    <section data-panel="uploads" class="panel hidden" id="uploads-panel"></section>
+
+    <section data-panel="bookings" class="panel hidden bg-white rounded-2xl border border-slate-200 p-3 space-y-2">
+      <div class="flex flex-wrap gap-2 text-sm" id="b-filter">
+        <button data-status="open" class="px-3 py-1.5 rounded-lg border border-slate-300">Open</button>
+        <button data-status="completed" class="px-3 py-1.5 rounded-lg border border-slate-300">Completed</button>
+        <button data-status="" class="px-3 py-1.5 rounded-lg border border-slate-300">All</button>
+      </div>
+      <div id="bookings"></div>
+    </section>
+
+    <section data-panel="prices" class="panel hidden space-y-4">
+      <form id="price-form" class="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-2 md:grid-cols-6 gap-3 text-sm items-end">
+        <label class="col-span-2 text-slate-600 relative">Test<input id="pf-search" autocomplete="off" placeholder="Search the test catalogue" class="field" />
+          <div id="pf-results" class="absolute z-30 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg hidden max-h-56 overflow-y-auto"></div></label>
+        <label class="text-slate-600">MRP (₹)<input name="mrp" type="number" min="1" step="1" required class="field" /></label>
+        <label class="text-slate-600">Your price (₹)<input name="price" type="number" min="1" step="1" required class="field" /></label>
+        <label class="text-slate-600">Report in (hours)<input name="report_hours" type="number" min="1" max="720" placeholder="default" class="field" /></label>
+        <button class="px-4 py-2 bg-cyan-600 text-white font-semibold rounded-lg">Save price</button>
+        <p id="pf-picked" class="col-span-full text-xs text-slate-500"></p>
+      </form>
+      <div class="bg-white rounded-xl border border-slate-200 p-2"><div id="prices"></div></div>
+    </section>
+
+    <section data-panel="profile" class="panel hidden space-y-6">
+      <form id="profile-form" class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 space-y-6 max-w-3xl">
+        <fieldset class="grid sm:grid-cols-2 gap-4">
+          <legend class="font-semibold text-slate-900 mb-2 col-span-full">Contact</legend>
+          <label class="text-sm text-slate-600">Contact person<input name="name" required class="field" /></label>
+          <label class="text-sm text-slate-600">Mobile<input name="phone" required class="field" /></label>
+        </fieldset>
+        <div class="lab-fields"></div>
+        <p class="text-xs text-amber-700">Changing the registration number or pathologist sends your lab back for verification.</p>
+        <button class="px-6 py-2.5 bg-cyan-600 text-white font-semibold rounded-lg">Save profile</button>
+      </form>
+      <form id="password-form" class="bg-white rounded-2xl border border-slate-200 p-6 max-w-3xl grid sm:grid-cols-3 gap-3 items-end text-sm">
+        <label class="text-slate-600">Current password<input name="current_password" type="password" required class="field" /></label>
+        <label class="text-slate-600">New password<input name="new_password" type="password" minlength="8" required class="field" /></label>
+        <button class="px-4 py-2 bg-slate-800 text-white font-semibold rounded-lg">Change password</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Report upload -->
+  <div id="report" class="modal hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <form id="report-form" class="w-full max-w-2xl bg-white rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto p-6 space-y-4 text-sm">
+      <div class="flex items-center justify-between"><h2 class="font-semibold">Upload report · <span id="r-ref"></span></h2>
+        <button type="button" data-close class="p-1 rounded hover:bg-slate-100" aria-label="Close">✕</button></div>
+      <p id="r-patient" class="text-slate-600"></p>
+      <label class="block text-slate-600">Report file (PDF, JPG or PNG, up to <span data-config="max_upload_mb">10</span> MB)
+        <input name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" class="mt-1 w-full" /></label>
+      <div>
+        <div class="flex items-center justify-between"><p class="font-medium text-slate-800">Key results <span class="text-xs font-normal text-slate-500">(optional, shows the patient and doctor trends and high/low flags)</span></p>
+          <span class="flex gap-3"><button type="button" id="r-read" class="text-cyan-700 text-xs font-semibold hover:underline">Read values from file</button>
+          <button type="button" id="r-add" class="text-cyan-700 text-xs hover:underline">+ Add result</button></span></div>
+        <p id="r-read-msg" class="text-xs text-slate-500" role="status"></p>
+        <div id="r-values" class="space-y-2 mt-2"></div>
+      </div>
+      <label class="block text-slate-600">Note for the patient (optional)<input name="notes" maxlength="500" class="field" /></label>
+      <p id="r-msg" class="hidden"></p>
+      <button class="w-full py-2.5 bg-emerald-600 text-white font-semibold rounded-lg">Upload and send to patient</button>
+    </form>
+  </div>
+
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml } = P;
+    let config, profile, picker = null, bStatus = 'open', bookings = [], requests = [], pfTest = null, reporting = null;
+
+    function labFieldsHtml() {
+      return `<fieldset class="grid sm:grid-cols-2 gap-4">
+          <legend class="font-semibold text-slate-900 mb-2 col-span-full">Lab &amp; registration</legend>
+          <label class="text-sm text-slate-600">Lab name<input name="lab_name" required class="field" /></label>
+          <label class="text-sm text-slate-600">Registration no. (Clinical Establishments)<input name="registration_no" required class="field" /></label>
+          <label class="text-sm text-slate-600">NABL accreditation no. (optional)<input name="nabl_no" class="field" /></label>
+          <label class="text-sm text-slate-600">GSTIN (optional)<input name="gstin" class="field" /></label>
+          <label class="text-sm text-slate-600">Pathologist / in-charge<input name="pathologist_name" required class="field" /></label>
+          <label class="text-sm text-slate-600">Their registration no.<input name="pathologist_reg_no" required class="field" /></label>
+          <label class="text-sm text-slate-600 col-span-full">Address<input name="address" required class="field" /></label>
+          <label class="text-sm text-slate-600">City<input name="city" required class="field" /></label>
+          <label class="text-sm text-slate-600">State<select name="state" class="field">${P.stateOptions(config.states)}</select></label>
+          <label class="text-sm text-slate-600">PIN code<input name="pincode" class="field" /></label>
+          <label class="text-sm text-slate-600">Opening hours<input name="opening_hours" placeholder="Mon–Sat 7 AM – 9 PM" class="field" /></label>
+          <div class="col-span-full"><p class="text-sm text-slate-600 mb-1">Lab location (patients within ${config.radius_km} km get matched to you)</p><div class="lab-map"></div></div>
+        </fieldset>
+        <fieldset class="grid sm:grid-cols-3 gap-4 mt-6 text-sm">
+          <legend class="font-semibold text-slate-900 mb-2 col-span-full">Collection, speed &amp; pricing</legend>
+          <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" name="home_collection" /> Home sample collection</label>
+          <label class="text-slate-600">Collection radius (km)<input name="collection_radius_km" type="number" min="0.5" max="25" step="0.5" value="3" class="field" /></label>
+          <label class="text-slate-600">Collection fee (₹)<input name="collection_fee" type="number" min="0" max="2000" value="0" class="field" /></label>
+          <label class="text-slate-600">Usual report time (hours)<input name="report_hours" type="number" min="1" max="720" value="24" class="field" /></label>
+          <label class="text-slate-600">Flat discount on MRP (%)<input name="flat_discount_percent" type="number" min="0" max="90" step="0.5" placeholder="e.g. 20" class="field" />
+            <span class="text-xs text-slate-400">Prices tests you haven't listed</span></label>
+        </fieldset>`;
+    }
+    function readLab(form) {
+      const f = form.elements;
+      const point = picker && picker.value();
+      if (!point) throw new Error('Pin your lab on the map');
+      return { lab_name: f.lab_name.value, registration_no: f.registration_no.value, nabl_no: f.nabl_no.value || null, gstin: f.gstin.value || null,
+        pathologist_name: f.pathologist_name.value, pathologist_reg_no: f.pathologist_reg_no.value, address: f.address.value, city: f.city.value,
+        state: f.state.value || null, pincode: f.pincode.value || null, opening_hours: f.opening_hours.value || null, lat: point.lat, lng: point.lng,
+        home_collection: f.home_collection.checked, collection_radius_km: Number(f.collection_radius_km.value || 3),
+        collection_fee: Number(f.collection_fee.value || 0), report_hours: Number(f.report_hours.value || 24),
+        flat_discount_percent: f.flat_discount_percent.value === '' ? null : Number(f.flat_discount_percent.value) };
+    }
+
+    async function showRegister() {
+      $('register-view').classList.remove('hidden');
+      const form = $('register-form');
+      form.querySelector('.lab-fields').innerHTML = labFieldsHtml();
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const f = e.target.elements;
+        try {
+          await api('/api/auth/register-lab', { method: 'POST', body: { name: f.name.value, phone: f.phone.value, email: f.email.value,
+            password: f.password.value, ...readLab(e.target) } });
+          location.reload();
+        } catch (err) { P.setMessage($('reg-msg'), err.message, 'error'); }
+      });
+      try { picker = await P.locationPicker(form.querySelector('.lab-map'), {}, point => P.fillCityState(point, form.elements.city, form.elements.state)); }
+      catch (err) { P.errorBox(form.querySelector('.lab-map'), err, () => location.reload()); }
+    }
+
+    // ---------- Dashboard ----------
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('bg-white', t.dataset.tab === tab));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
+      ({ uploads: () => PartnerUploads.load(), requests: loadRequests, bookings: loadBookings, prices: loadPrices, profile: initProfile })[tab]();
+    }
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+    function renderBanner() {
+      const b = $('status-banner');
+      const text = { pending: ['bg-amber-50 border-amber-200 text-amber-900', 'Your lab is under review. Add your test prices meanwhile; requests start once approved.'],
+        rejected: ['bg-red-50 border-red-200 text-red-800', `Your lab wasn't approved${profile.status_reason ? `: ${profile.status_reason}` : ''}. Update your profile to apply again.`],
+        suspended: ['bg-red-50 border-red-200 text-red-800', `Your lab is suspended${profile.status_reason ? `: ${profile.status_reason}` : ''}.`] }[profile.status];
+      b.classList.toggle('hidden', !text);
+      if (text) { b.className = `rounded-lg border px-4 py-3 text-sm ${text[0]}`; b.textContent = text[1]; }
+    }
+    async function loadStats() {
+      const s = await api('/api/lab/stats');
+      const card = (label, v) => `<div class="bg-white rounded-xl border border-slate-200 p-3"><p class="text-xs text-slate-500">${label}</p><p class="text-xl font-bold text-right tabular-nums">${v}</p></div>`;
+      $('stats').innerHTML = card('Open requests', P.num(s.open_requests)) + card('New bookings', P.num(s.new_bookings))
+        + card('Awaiting report', P.num(s.awaiting_report)) + card('Reports this month', P.num(s.completed_month))
+        + card('Revenue this month', P.money(s.revenue_month_paise)) + card('Tests priced', P.num(s.price_list_tests));
+      $('req-count').textContent = s.open_requests; $('req-count').classList.toggle('hidden', !s.open_requests);
+      $('book-count').textContent = s.new_bookings; $('book-count').classList.toggle('hidden', !s.new_bookings);
+    }
+
+    // ---------- Requests & quotes ----------
+    async function loadRequests() {
+      requests = await api('/api/lab/requests');
+      $('requests').innerHTML = requests.length ? requests.map((r, n) => {
+        const quoted = r.my_quote;
+        return `<form data-req="${n}" class="bg-white rounded-xl border ${quoted ? 'border-emerald-200' : 'border-slate-200'} p-4 space-y-2 text-sm">
+          <div class="flex flex-wrap justify-between gap-2"><p class="font-semibold">${escapeHtml(r.reference)} · ${P.km(r.distance_km)} away</p>
+            <span class="text-xs text-slate-500">${escapeHtml(new Date(r.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))}${quoted ? ' · <span class="text-emerald-700 font-semibold">Quote sent</span>' : ''}</span></div>
+          ${P.table([
+            { label: 'Test', render: t => `<p class="font-medium">${escapeHtml(t.name)}</p><p class="text-xs text-slate-500">${escapeHtml([t.category, t.sample_type, t.fasting ? 'fasting' : ''].filter(Boolean).join(' · '))}${t.instructions ? ' · ' + escapeHtml(t.instructions) : ''}${t.booked ? ' · <strong>booked elsewhere</strong>' : ''}</p>` },
+            { label: 'Can do', render: t => `<input type="checkbox" class="q-av" data-t="${t.id}" ${t.booked ? 'disabled' : ''} ${!t.booked && (quoted ? (quoted.lines.find(l => l.prescription_test_id === t.id) || {}).available : (r.suggested.find(l => l.prescription_test_id === t.id) || {}).available) ? 'checked' : ''} />` },
+            { label: 'Price (₹)', num: true, render: t => { const src = quoted ? quoted.lines : r.suggested; const l = src.find(x => x.prescription_test_id === t.id) || {};
+                return `<input type="number" min="0" step="1" class="q-price w-24 px-2 py-1 border border-slate-300 rounded text-right" data-t="${t.id}" value="${l.price_paise ? l.price_paise / 100 : ''}" ${t.booked ? 'disabled' : ''} />`; } },
+          ], r.tests)}
+          <div class="flex flex-wrap items-end gap-3">
+            <label class="text-slate-600">Report in (hours)<input class="q-hours block mt-1 w-24 px-2 py-1 border border-slate-300 rounded" type="number" min="1" max="720" value="${(quoted && quoted.report_hours) || profile.report_hours}" /></label>
+            <label class="flex items-center gap-2 text-slate-600 pb-1"><input type="checkbox" class="q-home" ${profile.home_collection && r.distance_km <= profile.collection_radius_km ? 'checked' : 'disabled'} /> Home collection</label>
+            <label class="text-slate-600">Collection fee (₹)<input class="q-fee block mt-1 w-24 px-2 py-1 border border-slate-300 rounded" type="number" min="0" value="${profile.collection_fee_paise / 100}" /></label>
+            <label class="flex-1 text-slate-600">Note<input class="q-note block mt-1 w-full px-2 py-1 border border-slate-300 rounded" maxlength="500" placeholder="e.g. Report on WhatsApp by evening" /></label>
+            <button class="px-4 py-2 bg-cyan-600 text-white font-semibold rounded-lg">${quoted ? 'Update quote' : 'Send quote'}</button>
+            <button type="button" data-decline="${r.id}" class="px-3 py-2 border border-slate-300 rounded-lg">Can't do</button>
+          </div></form>`;
+      }).join('') : '<div class="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">No open test requests near you right now.</div>';
+    }
+    $('requests').addEventListener('submit', async e => {
+      e.preventDefault();
+      const form = e.target, r = requests[form.dataset.req];
+      const items = r.tests.filter(t => !t.booked).map(t => {
+        const available = form.querySelector(`.q-av[data-t="${t.id}"]`).checked;
+        return { prescription_test_id: t.id, available, price: available ? Number(form.querySelector(`.q-price[data-t="${t.id}"]`).value || 0) : 0 };
+      });
+      try {
+        await api(`/api/lab/requests/${r.id}/quote`, { method: 'POST', body: { items, report_hours: Number(form.querySelector('.q-hours').value || 24),
+          home_collection: form.querySelector('.q-home').checked, collection_fee: Number(form.querySelector('.q-fee').value || 0),
+          note: form.querySelector('.q-note').value.trim() || null } });
+        P.toast('Quote sent. The patient sees it right away.', 'success');
+        loadRequests(); loadStats();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('requests').addEventListener('click', async e => {
+      const b = e.target.closest('[data-decline]');
+      if (!b || !confirm("Tell the patient you can't do these tests?")) return;
+      try { await api(`/api/lab/requests/${b.dataset.decline}/decline`, { method: 'POST' }); loadRequests(); loadStats(); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Bookings ----------
+    const LAB_STATUS = { booked: ['New', 'bg-red-100 text-red-700'], accepted: ['Accepted', 'bg-indigo-100 text-indigo-800'],
+      sample_collected: ['Sample collected', 'bg-amber-100 text-amber-800'], report_ready: ['Report sent', 'bg-emerald-100 text-emerald-800'],
+      completed: ['Completed', 'bg-emerald-600 text-white'], rejected: ['Rejected', 'bg-slate-200 text-slate-600'], cancelled: ['Cancelled', 'bg-slate-200 text-slate-600'] };
+    async function loadBookings() {
+      document.querySelectorAll('#b-filter button').forEach(b => b.classList.toggle('bg-cyan-50', b.dataset.status === bStatus));
+      bookings = await api(`/api/lab/bookings${bStatus ? `?status=${bStatus}` : ''}`);
+      $('bookings').innerHTML = P.table([
+        { label: 'Booked', render: b => `<p class="whitespace-nowrap">${escapeHtml(P.prettyDate(b.created_at.slice(0, 10)))}</p><p class="text-xs text-slate-500">${escapeHtml(b.reference)}</p>` },
+        { label: 'Patient', render: b => `<p class="font-medium">${escapeHtml(b.patient_name)}</p><p class="text-xs text-slate-500">${[b.patient_age != null ? `${b.patient_age} yrs` : '', b.patient_sex || ''].filter(Boolean).join(' · ')}${b.patient_phone ? ` · <a href="tel:${escapeHtml(b.patient_phone)}" class="text-sky-700">${escapeHtml(b.patient_phone)}</a>` : ''}</p>` },
+        { label: 'Tests', render: b => b.items.map(i => escapeHtml(i.name)).join('<br>') + `<p class="text-xs text-slate-500">Dr: ${escapeHtml(b.doctor_name)}</p>` },
+        { label: 'Collection', render: b => `${b.collection === 'home' ? `<strong>Home</strong><p class="text-xs text-slate-500">${escapeHtml(b.address || '')}</p>` : 'Walk-in'}${b.preferred_date ? `<p class="text-xs">${escapeHtml(P.prettyDate(b.preferred_date))} ${b.preferred_time ? escapeHtml(P.prettyTime(b.preferred_time)) : ''}</p>` : ''}` },
+        { label: 'Amount', num: true, render: b => P.money(b.total_paise) },
+        { label: 'Status', render: b => { const [l, c] = LAB_STATUS[b.status]; return `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${c}">${l}</span>`; } },
+        { label: 'Action', render: b => ({
+            booked: `<button type="button" data-st="accepted" data-id="${b.id}" class="px-2 py-1 bg-cyan-600 text-white rounded text-xs">Accept</button> <button type="button" data-st="rejected" data-id="${b.id}" class="px-2 py-1 border border-slate-300 rounded text-xs">Reject</button>`,
+            accepted: `<button type="button" data-st="sample_collected" data-id="${b.id}" class="px-2 py-1 bg-amber-500 text-white rounded text-xs">Sample collected</button> <button type="button" data-st="rejected" data-id="${b.id}" class="px-2 py-1 border border-slate-300 rounded text-xs">Reject</button>`,
+            sample_collected: `<button type="button" data-report="${b.id}" class="px-2 py-1 bg-emerald-600 text-white rounded text-xs">Upload report</button>`,
+            report_ready: `<a href="/api/records/${b.record_id}/file" target="_blank" class="text-xs text-sky-700 hover:underline">Report ↗</a> <button type="button" data-report="${b.id}" class="text-xs text-slate-600 hover:underline">Replace</button> <button type="button" data-st="completed" data-id="${b.id}" class="px-2 py-1 border border-emerald-300 text-emerald-700 rounded text-xs">Paid &amp; done</button>`,
+          })[b.status] || (b.record_id ? `<a href="/api/records/${b.record_id}/file" target="_blank" class="text-xs text-sky-700 hover:underline">Report ↗</a>` : '') },
+      ], bookings, { empty: 'No bookings here.' });
+    }
+    $('b-filter').addEventListener('click', e => { const b = e.target.closest('button[data-status]'); if (b) { bStatus = b.dataset.status; loadBookings(); } });
+    $('bookings').addEventListener('click', async e => {
+      const st = e.target.closest('[data-st]'), rep = e.target.closest('[data-report]');
+      if (st) {
+        const body = { status: st.dataset.st };
+        if (body.status === 'rejected') { body.reason = prompt('Reason for the patient:'); if (!body.reason) return; }
+        try { await api(`/api/lab/bookings/${st.dataset.id}/status`, { method: 'POST', body }); loadBookings(); loadStats(); }
+        catch (err) { P.toast(err.message, 'error'); }
+      }
+      if (rep) openReport(bookings.find(b => b.id === rep.dataset.report));
+    });
+
+    // ---------- Report upload ----------
+    function valueRow(v = {}) {
+      const row = document.createElement('div');
+      row.className = 'r-row grid grid-cols-12 gap-2 items-end';
+      row.innerHTML = `<label class="col-span-4 text-xs text-slate-600">Result<input class="r-name field" value="${escapeHtml(v.name || '')}" placeholder="HbA1c" /></label>
+        <label class="col-span-2 text-xs text-slate-600">Value<input class="r-value field" value="${escapeHtml(v.value || '')}" /></label>
+        <label class="col-span-2 text-xs text-slate-600">Unit<input class="r-unit field" value="${escapeHtml(v.unit || '')}" /></label>
+        <label class="col-span-1 text-xs text-slate-600">Low<input class="r-low field" type="number" step="any" value="${v.ref_low ?? ''}" /></label>
+        <label class="col-span-2 text-xs text-slate-600">High<input class="r-high field" type="number" step="any" value="${v.ref_high ?? ''}" /></label>
+        <button type="button" class="r-del col-span-1 text-red-600 text-xs pb-3" aria-label="Remove">✕</button>
+        ${v.hint ? `<p class="col-span-12 text-[11px] ${v.warn ? 'text-amber-700' : 'text-slate-500'}">${escapeHtml(v.hint)}</p>` : ''}`;
+      row.dataset.testId = v.test_id || '';
+      row.querySelector('.r-del').addEventListener('click', () => row.remove());
+      $('r-values').appendChild(row);
+    }
+    async function openReport(b) {
+      reporting = b;
+      $('report-form').reset();
+      $('r-ref').textContent = b.reference;
+      $('r-patient').textContent = `${b.patient_name} · ${b.items.map(i => i.name).join(', ')}`;
+      $('r-values').innerHTML = '';
+      $('r-read-msg').textContent = '';
+      // Pre-fill one row per test that has a reference range in the catalogue
+      for (const item of b.items) {
+        const t = item.test_id ? (await api(`/api/lab-tests?q=${encodeURIComponent(item.name)}&limit=5`)).find(x => x.id === item.test_id) : null;
+        if (t && t.unit) valueRow({ test_id: t.id, name: t.name.replace(/ \(.*\)$/, ''), unit: t.unit, ref_low: t.ref_low, ref_high: t.ref_high });
+      }
+      P.setMessage($('r-msg'), '', 'info');
+      P.openModal('report');
+    }
+    $('r-add').addEventListener('click', () => valueRow());
+    // Suggested values from the chosen report file; the lab checks every one before sending
+    $('r-read').addEventListener('click', async () => {
+      const file = $('report-form').elements.file.files[0];
+      if (!file) return P.toast('Choose the report file first', 'error');
+      const fd = new FormData();
+      fd.append('file', file);
+      $('r-read-msg').textContent = 'Reading the report…';
+      try {
+        const out = await P.upload(`/api/lab/bookings/${reporting.id}/report/read`, fd);
+        if (out.engine !== 'claude') { $('r-read-msg').textContent = 'Automatic reading is not switched on. Type the values below.'; return; }
+        $('r-values').innerHTML = '';
+        out.values.forEach(v => valueRow({ ...v, name: v.name.replace(/ \(.*\)$/, ''),
+          warn: v.check_unit || !v.test_id, hint: v.check_unit ? `Check the unit: our usual unit differs (${v.written_as})`
+            : !v.test_id ? `Not in the test list: “${v.written_as}”` : (v.flag && v.flag !== 'normal' ? `Flag: ${v.flag}` : '') }));
+        $('r-read-msg').textContent = `Read ${out.values.length} values. Check each against the report before sending.`;
+      } catch (err) { $('r-read-msg').textContent = err.message; }
+    });
+    $('report-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const values = [...document.querySelectorAll('.r-row')].map(r => ({
+        test_id: r.dataset.testId ? Number(r.dataset.testId) : null, name: r.querySelector('.r-name').value.trim(), value: r.querySelector('.r-value').value.trim(),
+        unit: r.querySelector('.r-unit').value.trim() || null,
+        ref_low: r.querySelector('.r-low').value === '' ? null : Number(r.querySelector('.r-low').value),
+        ref_high: r.querySelector('.r-high').value === '' ? null : Number(r.querySelector('.r-high').value) })).filter(v => v.name && v.value);
+      const fd = new FormData();
+      fd.append('file', e.target.elements.file.files[0]);
+      fd.append('values', JSON.stringify(values));
+      if (e.target.elements.notes.value.trim()) fd.append('notes', e.target.elements.notes.value.trim());
+      const btn = e.submitter; if (btn) btn.disabled = true;
+      try {
+        await P.upload(`/api/lab/bookings/${reporting.id}/report`, fd);
+        P.closeModal('report');
+        P.toast('Report sent to the patient and their doctor', 'success');
+        loadBookings(); loadStats();
+      } catch (err) { P.setMessage($('r-msg'), err.message, 'error'); }
+      finally { if (btn) btn.disabled = false; }
+    });
+
+    // ---------- Prices ----------
+    async function loadPrices() {
+      const list = await api('/api/lab/prices');
+      $('prices').innerHTML = P.table([
+        { label: 'Test', render: p => `<p class="font-medium">${escapeHtml(p.name)}</p><p class="text-xs text-slate-500">${escapeHtml(p.category)}</p>` },
+        { label: 'MRP', num: true, render: p => P.money(p.mrp_paise) },
+        { label: 'Your price', num: true, render: p => `<strong>${P.money(p.price_paise)}</strong>` },
+        { label: 'Discount', num: true, render: p => p.mrp_paise > p.price_paise ? `${Math.round(100 * (p.mrp_paise - p.price_paise) / p.mrp_paise)}%` : '—' },
+        { label: 'Report in', num: true, render: p => p.report_hours ? `${p.report_hours} h` : `${profile.report_hours} h` },
+        { label: 'Available', render: p => `<input type="checkbox" data-avail="${p.test_id}" ${p.available ? 'checked' : ''} />` },
+        { label: '', render: p => `<button type="button" data-del="${p.test_id}" class="text-xs text-red-600 hover:underline">Remove</button>` },
+      ], list, { empty: 'No prices yet. Add your common tests above so patients see you in comparisons.' });
+      $('prices').list = list;
+    }
+    let pfTimer;
+    $('pf-search').addEventListener('input', () => {
+      pfTest = null; $('pf-picked').textContent = '';
+      clearTimeout(pfTimer);
+      pfTimer = setTimeout(async () => {
+        const q = $('pf-search').value.trim(), box = $('pf-results');
+        if (q.length < 2) { box.classList.add('hidden'); return; }
+        box.tests = await api(`/api/lab-tests?q=${encodeURIComponent(q)}`);
+        box.innerHTML = box.tests.map((t, i) => `<button type="button" data-i="${i}" class="block w-full text-left px-3 py-1.5 hover:bg-cyan-50">${escapeHtml(t.name)} <span class="text-xs text-slate-400">${escapeHtml(t.category)}${t.mrp_paise ? ' · MRP ' + P.money(t.mrp_paise) : ''}</span></button>`).join('')
+          || '<p class="px-3 py-2 text-slate-500">Not in the catalogue. Ask support to add it.</p>';
+        box.classList.remove('hidden');
+      }, 200);
+    });
+    $('pf-results').addEventListener('click', e => {
+      const b = e.target.closest('[data-i]');
+      if (!b) return;
+      pfTest = $('pf-results').tests[b.dataset.i];
+      $('pf-search').value = pfTest.name;
+      $('pf-picked').textContent = `${pfTest.category}${pfTest.sample_type ? ' · ' + pfTest.sample_type : ''}${pfTest.fasting ? ' · fasting' : ''}`;
+      if (pfTest.mrp_paise) $('price-form').elements.mrp.value = pfTest.mrp_paise / 100;
+      $('pf-results').classList.add('hidden');
+    });
+    $('price-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!pfTest) return P.toast('Pick a test from the list', 'error');
+      const f = e.target.elements;
+      try {
+        await api('/api/lab/prices', { method: 'PUT', body: { test_id: pfTest.id, mrp: Number(f.mrp.value), price: Number(f.price.value),
+          report_hours: f.report_hours.value ? Number(f.report_hours.value) : null } });
+        e.target.reset(); pfTest = null; $('pf-picked').textContent = '';
+        P.toast('Price saved', 'success'); loadPrices(); loadStats();
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('prices').addEventListener('change', async e => {
+      const box = e.target.closest('[data-avail]');
+      if (!box) return;
+      const p = $('prices').list.find(x => String(x.test_id) === box.dataset.avail);
+      try { await api('/api/lab/prices', { method: 'PUT', body: { test_id: p.test_id, mrp: p.mrp_paise / 100, price: p.price_paise / 100, available: box.checked, report_hours: p.report_hours } }); }
+      catch (err) { box.checked = !box.checked; P.toast(err.message, 'error'); }
+    });
+    $('prices').addEventListener('click', async e => {
+      const b = e.target.closest('[data-del]');
+      if (!b || !confirm('Remove this test from your price list?')) return;
+      try { await api(`/api/lab/prices/${b.dataset.del}`, { method: 'DELETE' }); loadPrices(); loadStats(); } catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    // ---------- Profile ----------
+    async function initProfile() {
+      const form = $('profile-form'), f = form.elements;
+      f.name.value = profile.name; f.phone.value = profile.phone || '';
+      ['lab_name', 'registration_no', 'nabl_no', 'gstin', 'pathologist_name', 'pathologist_reg_no', 'address', 'city', 'state', 'pincode',
+       'opening_hours', 'collection_radius_km', 'report_hours'].forEach(k => { f[k].value = profile[k] ?? ''; });
+      f.collection_fee.value = profile.collection_fee_paise / 100;
+      f.flat_discount_percent.value = profile.flat_discount_percent ?? '';
+      f.home_collection.checked = profile.home_collection;
+      if (!picker) picker = await P.locationPicker(form.querySelector('.lab-map'), { lat: profile.lat, lng: profile.lng },
+        point => P.fillCityState(point, f.city, f.state));
+    }
+    $('profile-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        const res = await api('/api/lab/profile', { method: 'PUT', body: { name: f.name.value, phone: f.phone.value, ...readLab(e.target) } });
+        profile = res; renderBanner(); $('welcome').textContent = profile.lab_name;
+        P.toast(res.reverification_required ? 'Saved. Your lab will be re-verified.' : 'Profile saved', 'success');
+      } catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('password-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      try { await api('/api/auth/change-password', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); e.target.reset(); P.toast('Password changed', 'success'); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+
+    loadStats = P.guard(loadStats, 'stats');
+    loadRequests = P.guard(loadRequests, 'requests');
+    loadBookings = P.guard(loadBookings, 'bookings');
+    loadPrices = P.guard(loadPrices, 'prices');
+    initProfile = P.guard(initProfile);
+    openReport = P.guard(openReport);
+
+    (async () => {
+      config = await api('/api/config');
+      const { user } = await P.me();
+      if (!user) return showRegister();
+      if (user.role !== 'lab') { location.href = P.DASHBOARD[user.role][0]; return; }
+      $('app-view').classList.remove('hidden');
+      $('profile-form').querySelector('.lab-fields').innerHTML = labFieldsHtml();
+      profile = await api('/api/lab/profile');
+      $('welcome').textContent = profile.lab_name;
+      renderBanner();
+      PartnerUploads.outcomes($('outcomes'));
+      PartnerUploads.init($('uploads-panel'), 'lab');
+      api('/api/partner/upload-stats').then(s => { $('up-count').textContent = s.open_requests; $('up-count').classList.toggle('hidden', !s.open_requests); }).catch(() => {});
+      loadStats();
+      showTab(location.hash === '#bookings' ? 'bookings' : 'requests');
+      setInterval(() => loadStats().catch(() => {}), 30000);
+    })().catch(P.fatal);
+  </script>
+</body>
+</html>

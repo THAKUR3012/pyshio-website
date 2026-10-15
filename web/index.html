@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <title>Pyshio | Cheapest Doctors &amp; Medicines Near You</title>
+  <meta name="description" content="Find verified doctors and physiotherapists within 3 km sorted by fee, and get your prescription priced by nearby pharmacies so you pay the lowest price." />
+  <meta property="og:title" content="Pyshio – doctors and medicines near you, cheapest first" />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="/assets/app.js"></script>
+</head>
+<body class="font-sans text-slate-800 bg-slate-50">
+  <header id="site-nav"></header>
+
+  <section class="bg-gradient-to-br from-sky-700 via-sky-600 to-sky-800 text-white">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-20">
+      <div class="max-w-2xl">
+        <div class="inline-flex items-center gap-2 bg-white/15 px-3 py-1 rounded-full text-sm font-medium mb-5">
+          <span class="w-2 h-2 bg-emerald-400 rounded-full"></span> Verified doctors &amp; licensed pharmacies only
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold leading-tight mb-4">Cheapest doctors near you.<br><span class="text-sky-200">Cheapest medicines too.</span></h1>
+        <p class="text-lg text-sky-100 mb-8">See doctors within <span data-config="radius_km">3</span> km sorted by fee. After your visit, pharmacies around your home compete to fill your prescription.</p>
+      </div>
+      <form id="search-form" class="bg-white rounded-2xl shadow-xl p-3 grid gap-2 md:grid-cols-[1fr_1fr_1.2fr_auto] text-slate-800">
+        <select id="s-cat" aria-label="Doctor type" class="px-3 py-3 rounded-lg border border-slate-200"><option value="">All doctors</option></select>
+        <select id="s-spec" aria-label="Speciality" class="px-3 py-3 rounded-lg border border-slate-200"><option value="">Any speciality</option></select>
+        <input id="s-q" aria-label="Name" placeholder="Doctor or clinic name" class="px-3 py-3 rounded-lg border border-slate-200" />
+        <button class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Search</button>
+        <div class="md:col-span-4 flex flex-wrap items-center gap-2 text-sm pt-1">
+          <button type="button" id="near-btn" class="px-3 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">📍 Near me</button>
+          <span id="near-label" class="text-slate-600">Showing doctors everywhere</span>
+          <button type="button" id="clear-near" class="hidden text-sky-700 hover:underline">Show everywhere</button>
+          <label class="flex items-center gap-2 text-slate-700"><input type="checkbox" id="s-home" /> 🏠 Home visit available</label>
+          <label class="flex items-center gap-2 text-slate-700"><input type="checkbox" id="s-video" /> 🎥 Video consult (any distance)</label>
+          <label class="ml-auto flex items-center gap-2 text-slate-600">Sort
+            <select id="s-sort" class="px-2 py-1.5 rounded-lg border border-slate-200">
+              <option value="cheapest">Cheapest fee</option><option value="nearest">Nearest</option><option value="experience">Most experienced</option><option value="rated">Best rated</option>
+            </select></label>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Symptom checker: which doctor should I see? (emergency signs first) -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 pt-10">
+    <form id="triage-form" class="bg-white rounded-2xl border border-slate-200 p-5 grid gap-3 md:grid-cols-[1fr_auto] items-end">
+      <label class="text-slate-700"><span class="font-semibold text-slate-900">Not sure which doctor to see?</span>
+        <span class="block text-sm text-slate-500 mb-1">Describe the problem in English or Hinglish, e.g. “kamar mein dard 2 hafte se” or “child has fever and cough”.</span>
+        <input id="triage-text" maxlength="500" required class="w-full px-3 py-3 rounded-lg border border-slate-300" placeholder="What's bothering you?" /></label>
+      <button class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Find the right doctor</button>
+      <div id="triage-out" class="md:col-span-2 hidden" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <section id="doctors" class="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+    <div class="flex items-baseline justify-between mb-5">
+      <h2 class="text-2xl font-bold text-slate-900">Doctors</h2>
+      <p id="result-count" class="text-sm text-slate-500"></p>
+    </div>
+    <div id="doctor-list" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    <div id="widen" class="hidden mt-4 text-sm text-slate-600"></div>
+  </section>
+
+  <section id="pharmacies-section" class="hidden max-w-6xl mx-auto px-4 sm:px-6 pb-10">
+    <h2 class="text-2xl font-bold text-slate-900 mb-1">Pharmacies near you</h2>
+    <p class="text-sm text-slate-500 mb-5">Your prescriptions are automatically sent to these pharmacies. You'll see the cheapest price, best discount and fastest delivery.</p>
+    <div id="pharmacy-list" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+  </section>
+
+  <section class="bg-white border-y border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid md:grid-cols-4 gap-8 text-center">
+      <div><div class="w-12 h-12 rounded-full bg-sky-600 text-white text-lg font-bold flex items-center justify-center mx-auto mb-3">1</div>
+        <h3 class="font-semibold mb-1">Find a doctor nearby</h3><p class="text-sm text-slate-600">Within <span data-config="radius_km">3</span> km of home, cheapest fee first.</p></div>
+      <div><div class="w-12 h-12 rounded-full bg-sky-600 text-white text-lg font-bold flex items-center justify-center mx-auto mb-3">2</div>
+        <h3 class="font-semibold mb-1">Get a digital prescription</h3><p class="text-sm text-slate-600">Your doctor issues it on Pyshio after the visit.</p></div>
+      <div><div class="w-12 h-12 rounded-full bg-sky-600 text-white text-lg font-bold flex items-center justify-center mx-auto mb-3">3</div>
+        <h3 class="font-semibold mb-1">Pharmacies compete</h3><p class="text-sm text-slate-600">Licensed pharmacies within <span data-config="radius_km">3</span> km send their prices.</p></div>
+      <div><div class="w-12 h-12 rounded-full bg-sky-600 text-white text-lg font-bold flex items-center justify-center mx-auto mb-3">4</div>
+        <h3 class="font-semibold mb-1">Pick the cheapest</h3><p class="text-sm text-slate-600">Pick up or get it delivered. Pay online or at the store.</p></div>
+    </div>
+  </section>
+
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid md:grid-cols-2 gap-6">
+    <div class="rounded-2xl bg-gradient-to-br from-sky-50 to-sky-100 border border-sky-200 p-8">
+      <h2 class="text-xl font-bold text-slate-900 mb-2">Are you a doctor or physiotherapist?</h2>
+      <p class="text-slate-600 mb-5">Get found by patients around your clinic, manage bookings and issue digital prescriptions.</p>
+      <a href="/doctor#register" class="inline-flex px-5 py-2.5 bg-sky-600 text-white font-semibold rounded-xl hover:bg-sky-700">Join as a doctor</a>
+    </div>
+    <div class="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 p-8">
+      <h2 class="text-xl font-bold text-slate-900 mb-2">Run a pharmacy?</h2>
+      <p class="text-slate-600 mb-5">Receive prescriptions from patients within <span data-config="radius_km">3</span> km, quote your price and win orders.</p>
+      <a href="/pharmacy#register" class="inline-flex px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700">Register your pharmacy</a>
+    </div>
+  </section>
+
+  <footer class="bg-slate-900 text-slate-400 py-10 text-sm">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row justify-between gap-4">
+      <div><p>© <span id="year"></span> <span data-config="platform_name">Pyshio</span>. Verified doctors and licensed pharmacies near you.</p>
+        <p id="support" class="mt-1"></p></div>
+      <div class="flex flex-wrap gap-5"><a href="/account" class="hover:text-white">My health</a><a href="/doctor" class="hover:text-white">For doctors</a>
+        <a href="/pharmacy" class="hover:text-white">For pharmacies</a><a href="/privacy" class="hover:text-white">Privacy</a><a href="/terms" class="hover:text-white">Terms</a></div>
+    </div>
+  </footer>
+
+  <script>
+    const P = Pyshio;
+    const { $, api, escapeHtml, rupees } = P;
+    let config, near = null, nearLabel = '', radius = null;
+
+    function doctorCard(d) {
+      const initials = d.name.replace(/^dr\.?\s*/i, '').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+      return `
+        <a href="/doctors/${encodeURIComponent(d.slug)}" class="group bg-white rounded-xl border border-slate-200 p-5 hover:border-sky-300 hover:shadow-md transition flex flex-col">
+          <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-full bg-sky-600 text-white flex items-center justify-center text-lg font-bold shrink-0">${escapeHtml(initials)}</div>
+            <div class="min-w-0">
+              <p class="font-semibold text-slate-900 group-hover:text-sky-700">${escapeHtml(d.name)}</p>
+              <p class="text-xs font-medium text-sky-700">${escapeHtml(d.category_label)}${d.visited_count ? ` <span class="ml-1 px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 font-semibold">Visited ${d.visited_count}×</span>` : ''}</p>
+              <p class="text-sm text-slate-600">${escapeHtml(d.qualification)} · ${d.experience_years} yrs</p>
+              <p class="text-sm text-slate-500 truncate">${escapeHtml(d.clinic_name)}, ${escapeHtml(d.city)}</p>
+            </div>
+          </div>
+          ${d.offers_video ? `<p class="mt-2 text-xs font-medium text-emerald-700">🎥 Video consultations${d.video_fee != null ? ` · ${rupees(d.video_fee)}` : ''}</p>` : ''}
+          ${d.offers_home_visits ? `<p class="mt-2 text-xs font-medium text-amber-800">🏠 Home visits within ${d.home_visit_radius_km} km${d.home_visit_fee ? ` · travel from ${rupees(d.home_visit_fee)}` : ''}</p>` : ''}
+          <div class="flex flex-wrap gap-1.5 mt-3">${d.specialities.map(s => `<span class="px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 text-xs">${escapeHtml(s)}</span>`).join('')}</div>
+          <div class="mt-auto pt-4 flex items-end justify-between">
+            <div><p class="text-xs text-slate-500">Fee from</p><p class="text-lg font-bold text-slate-900">${d.fee_from == null ? '—' : rupees(d.fee_from)}</p>
+              ${d.rating ? `<p class="text-xs text-amber-600" aria-label="Rated ${d.rating} out of 5">★ ${d.rating} <span class="text-slate-500">(${d.rating_count})</span></p>` : ''}</div>
+            ${d.distance_km != null ? `<span class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold">${P.km(d.distance_km)} away</span>` : ''}
+          </div>
+        </a>`;
+    }
+
+    function fillSpecialities() {
+      const cat = $('s-cat').value;
+      const list = cat ? config.doctor_categories[cat].specialities : config.specialities;
+      $('s-spec').innerHTML = '<option value="">Any speciality</option>' + list.map(s => `<option>${escapeHtml(s)}</option>`).join('');
+    }
+
+    async function search(e) {
+      if (e) e.preventDefault();
+      const params = new URLSearchParams({ sort: $('s-sort').value });
+      if ($('s-cat').value) params.set('category', $('s-cat').value);
+      if ($('s-home').checked) params.set('home_visit', 'true');
+      if ($('s-video').checked) params.set('video', 'true');
+      if ($('s-spec').value) params.set('speciality', $('s-spec').value);
+      if ($('s-q').value.trim()) params.set('q', $('s-q').value.trim());
+      if (near) { params.set('lat', near.lat); params.set('lng', near.lng); if (radius) params.set('radius', radius); }
+      $('doctor-list').innerHTML = '<p class="text-slate-500">Loading…</p>';
+      try {
+        const doctors = await api(`/api/doctors?${params}`);
+        $('result-count').textContent = `${doctors.length} found${near ? ` within ${radius || config.radius_km} km` : ''}`;
+        $('doctor-list').innerHTML = doctors.length ? doctors.map(doctorCard).join('')
+          : `<p class="col-span-full text-slate-500">No doctors match${near ? ` within ${radius || config.radius_km} km` : ''}.</p>`;
+        const wider = near ? config.wider_radii_km.filter(r => r > (radius || config.radius_km)) : [];
+        $('widen').classList.toggle('hidden', !wider.length);
+        $('widen').innerHTML = wider.length ? `Want more choice? Search within ${wider.map(r => `<button data-r="${r}" class="text-sky-700 hover:underline font-medium">${r} km</button>`).join(' or ')}.` : '';
+      } catch (err) {
+        $('doctor-list').innerHTML = `<p class="text-red-600">${escapeHtml(err.message)}</p>`;
+      }
+      loadPharmacies();
+    }
+
+    async function loadPharmacies() {
+      $('pharmacies-section').classList.toggle('hidden', !near);
+      if (!near) return;
+      const list = await api(`/api/pharmacies/nearby?lat=${near.lat}&lng=${near.lng}`);
+      $('pharmacy-list').innerHTML = list.length ? list.slice(0, 8).map(p => `
+        <div class="bg-white rounded-xl border border-slate-200 p-4">
+          <p class="font-semibold text-slate-900">${escapeHtml(p.store_name)}</p>
+          <p class="text-sm text-slate-500">${escapeHtml(p.address)}</p>
+          <p class="text-xs text-slate-500 mt-1">${escapeHtml(p.opening_hours || '')}</p>
+          <div class="flex gap-2 mt-2 text-xs">
+            <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold">${P.km(p.distance_km)}</span>
+            ${p.offers_delivery ? `<span class="px-2 py-0.5 rounded bg-sky-50 text-sky-800">Delivers ~${p.delivery_minutes} min</span>` : ''}
+            ${p.flat_discount_percent ? `<span class="px-2 py-0.5 rounded bg-violet-50 text-violet-800 font-semibold">${p.flat_discount_percent}% off MRP</span>` : ''}
+            ${p.rating ? `<span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700">★ ${p.rating}</span>` : ''}
+          </div>
+        </div>`).join('') : `<p class="text-slate-500">No partner pharmacies within ${config.radius_km} km yet.</p>`;
+    }
+
+    function setNear(point, label) {
+      near = point; nearLabel = label; radius = null;
+      $('near-label').textContent = near ? `Within ${config.radius_km} km of ${label}` : 'Showing doctors everywhere';
+      $('clear-near').classList.toggle('hidden', !near);
+      search();
+    }
+
+    $('near-btn').addEventListener('click', async () => {
+      const data = await P.me();
+      if (data.home && data.home.lat != null) return setNear(data.home, 'your home');
+      try { setNear(await P.browserLocation(), 'your current location'); }
+      catch (err) { P.toast(err.message, 'error'); }
+    });
+    $('clear-near').addEventListener('click', () => setNear(null, ''));
+    $('triage-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const out = $('triage-out');
+      out.classList.remove('hidden');
+      out.innerHTML = '<p class="text-slate-500">Checking…</p>';
+      try {
+        const body = { text: $('triage-text').value.trim() };
+        if (near) { body.lat = near.lat; body.lng = near.lng; }
+        const r = await api('/api/triage', { method: 'POST', body });
+        if (r.emergency) {
+          out.innerHTML = `<div class="rounded-xl border-2 border-red-500 bg-red-50 p-4 text-red-900" role="alert">
+            <p class="text-lg font-bold">${escapeHtml(r.message)}</p>
+            ${r.messages.map(m => `<p class="mt-1">${escapeHtml(m)}</p>`).join('')}
+            <a href="tel:108" class="inline-block mt-3 px-5 py-2.5 rounded-lg bg-red-600 text-white font-semibold">Call 108</a></div>`;
+          return;
+        }
+        const specs = r.specialities.map(escapeHtml).join(', ');
+        const list = r.doctors.length ? `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">${r.doctors.slice(0, 6).map(doctorCard).join('')}</div>`
+          : r.needs_location ? `<p class="mt-2 text-slate-600">Tap <strong>Near me</strong> above to see these doctors around you.</p>`
+          : `<p class="mt-2 text-slate-600">No such doctors within ${config.radius_km} km yet.</p>`;
+        out.innerHTML = `<div class="rounded-xl bg-sky-50 border border-sky-200 p-4">
+            <p class="text-slate-800"><span class="font-semibold">Suggested:</span> ${specs}</p>
+            <p class="text-sm text-slate-600">${escapeHtml(r.reason || '')}${r.fallback_to_gp ? ' None of these are close by, so here are general physicians near you.' : ''}</p>
+            ${list}
+            <p class="mt-3 text-xs text-slate-500">${escapeHtml(r.disclaimer)}</p></div>`;
+      } catch (err) { out.innerHTML = `<p class="text-red-700">${escapeHtml(err.message)}</p>`; }
+    });
+    $('widen').addEventListener('click', e => { if (e.target.dataset.r) { radius = Number(e.target.dataset.r); search(); } });
+    $('search-form').addEventListener('submit', search);
+    $('s-cat').addEventListener('change', () => { fillSpecialities(); search(); });
+    ['s-spec', 's-sort', 's-home', 's-video'].forEach(id => $(id).addEventListener('change', search));
+
+    // Every loader shows an inline error with Retry instead of leaving a blank panel
+    loadPharmacies = P.guard(loadPharmacies, 'pharmacy-list');
+
+    (async () => {
+      config = await api('/api/config');
+      $('year').textContent = new Date().getFullYear();
+      $('support').textContent = [config.support_email, config.support_phone].filter(Boolean).join(' · ') ? `Support: ${[config.support_email, config.support_phone].filter(Boolean).join(' · ')}` : '';
+      $('s-cat').insertAdjacentHTML('beforeend', Object.entries(config.doctor_categories)
+        .map(([k, c]) => `<option value="${k}">${escapeHtml(c.label)}</option>`).join(''));
+      fillSpecialities();
+      const data = await P.me();
+      if (data.home && data.home.lat != null) setNear(data.home, 'your home');
+      else search();
+    })().catch(P.fatal);
+  </script>
+</body>
+</html>
