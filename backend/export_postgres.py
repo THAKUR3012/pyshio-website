@@ -1,3 +1,131 @@
+"""Write postgres_schema.sql: every Pyshio table (latest version) as PostgreSQL 14+ DDL,
+plus the reference data (conditions, lab tests, starter medicine catalogue).
+
+    python export_postgres.py              # writes postgres_schema.sql
+    psql -U USER -d DBNAME -f postgres_schema.sql
+
+It builds a fresh, empty SQLite database with every upgrade applied and translates that, so the schema
+always matches the latest code.
+"""
+from pathlib import Path
+import os
+import re
+import sqlite3
+import sys
+import tempfile
+
+OUT = Path(__file__).resolve().parent / "postgres_schema.sql"
+
+# Columns holding a uuid / id stored as text
+ID_TEXT = {"id", "prescription_id", "appointment_id", "order_id", "upload_id", "booking_id", "lab_booking_id",
+           "upload_order_id", "parent_id", "subject_id", "root_id"}
+LONG_TEXT = {"bio", "body", "note", "notes", "advice", "diagnosis", "detail", "reason", "instructions", "purpose", "products",
+             "doctor_notes", "visit_note", "status_reason", "doctor_note", "value_text", "last_body", "address", "home_address",
+             "visit_address", "delivery_address", "payload", "result", "typed_lines", "safety_alerts"}
+FLAGS = {"is_active", "active", "available", "home_collection", "offers_home_visits", "accept_mr_meetings", "fasting",
+         "delivery_available", "rx_required", "allow_substitute", "share_with_doctors", "want_medicines", "want_tests",
+         "accepts_clinic_payment", "accepts_online_payment", "offers_delivery", "is_long_term", "in_stock", "ai_read_consent", "ok"}
+DATE_ONLY = {"dob", "since", "record_date", "ends_on", "started_on", "preferred_date", "appointment_date", "block_date"}
+TIME_ONLY = {"appointment_time", "preferred_time", "start_time", "end_time"}
+SIZES = {"email": 254, "token_hash": 64, "reference": 20, "slug": 120, "code": 20, "role": 20, "status": 24, "kind": 24,
+         "phone": 20, "pincode": 6, "state": 60, "city": 60, "category": 40, "sex": 10, "unit": 20, "strength": 40, "form": 20,
+         "care_area": 40, "payment_method": 10, "payment_status": 20, "fulfilment": 10, "collection": 10, "visit_type": 10,
+         "partner_role": 10, "author_role": 20, "uploader_role": 20, "target_role": 20, "outcome": 20, "flag": 10,
+         "content_type": 60, "source": 20, "location_source": 20, "subject_kind": 20, "closed_by_role": 20, "cancelled_by": 20,
+         "specialities": 1000, "care_areas": 1000}
+
+
+def q(names) -> str:
+    """Double-quote identifiers for PostgreSQL (preserves case, escapes reserved keywords)."""
+    return ", ".join(f'"{n}"' for n in names)
+
+
+def pg_type(table: str, col: dict, indexed: set, auto: bool) -> str:
+    name, decl = col["name"], (col["type"] or "").upper()
+    if decl == "INTEGER":
+        if auto:
+            return "SERIAL"
+        if name in FLAGS:
+            return "BOOLEAN"
+        if name.endswith("_paise"):
+            return "BIGINT"
+        return "INTEGER"
+    if decl == "REAL":
+        return "DOUBLE PRECISION"
+    # TEXT types
+    if name in ID_TEXT or (col["pk"] and name == "id"):
+        return "VARCHAR(36)"
+    if name in DATE_ONLY:
+        return "VARCHAR(10)"   # ISO YYYY-MM-DD
+    if name in TIME_ONLY:
+        return "VARCHAR(5)"    # HH:MM
+    if name.endswith("_at") or name in ("valid_until", "expires_at", "hit_at", "failed_at", "scheduled_for", "refill_until"):
+        return "VARCHAR(19)"   # ISO YYYY-MM-DDTHH:MM:SS
+    if name in SIZES:
+        return f"VARCHAR({SIZES[name]})"
+    if name in LONG_TEXT and name not in indexed:
+        return "TEXT"
+    return "VARCHAR(255)"
+
+
+def checks_for(sql: str) -> dict:
+    """Extract column-level CHECK (...) clauses."""
+    out = {}
+    for m in re.finditer(r"\n\s*(\w+)\s+[A-Z]+[^,]*?CHECK\s*\(", sql):
+        start = m.end() - 1
+        depth, i = 0, start
+        while i < len(sql):
+            if sql[i] == "(":
+                depth += 1
+            elif sql[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        out[m.group(1)] = "CHECK " + " ".join(sql[start:i + 1].split())
+    return out
+
+
+def default_sql(value, ptype: str, col_name: str):
+    if value is None or ptype == "SERIAL":
+        return ""
+    if ptype == "BOOLEAN":
+        val_str = str(value).strip().strip("'\"")
+        return " DEFAULT TRUE" if val_str in ("1", "true", "TRUE") else " DEFAULT FALSE"
+    return f" DEFAULT {value}"
+
+
+def build() -> tuple[str, int, int]:
+    tmp = Path(tempfile.mkdtemp()) / "fresh.db"
+    os.environ["PYSHIO_DB"] = str(tmp)
+    os.environ.setdefault("PYSHIO_ENV_FILE", str(tmp.parent / "none.env"))
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from shared import db
+    from features.medicines import logic as medicines
+    db.init_db()
+    medicines.seed_catalogue()
+    conn = sqlite3.connect(tmp)
+    conn.row_factory = sqlite3.Row
+    tables = [r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' "
+                                               "AND name NOT LIKE 'legacy_%' ORDER BY name")]
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    lines = [
+        "-- Pyshio database schema for PostgreSQL 14+.",
+        f"-- Generated by export_postgres.py from schema version {version}. Tables: {len(tables)}.",
+        "-- Dates/times are stored as ISO text (YYYY-MM-DDTHH:MM:SS, YYYY-MM-DD, HH:MM).",
+        "-- Money columns ending in _paise are integer paise (100 paise = 1 rupee); appointment fees are whole rupees.",
+        "",
+        "SET client_encoding = 'UTF8';",
+        "SET standard_conforming_strings = on;",
+        ""
+    ]
+
+    post_table_indexes = []
+    post_table_foreign_keys = []
+
+    for t in tables:
+        sql = conn.execute("SELECT sql FROM sqlite_master WHERE name = ?", (t,)).fetchone()["sql"]
+        cols = [dict(r) for r in conn.execute(f"PRAGMA table_info({t})")]
         idx_rows = conn.execute("SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL",
                                 (t,)).fetchall()
         auto_uniques = [r for r in conn.execute(f"PRAGMA index_list({t})") if r["origin"] == "u"]
@@ -72,7 +200,6 @@
                 + ";"
             )
 
-        lines.append(f'DROP TABLE IF EXISTS "{t}" CASCADE;')
         lines.append(f'CREATE TABLE "{t}" (\n' + ",\n".join(defs) + "\n);\n")
 
     lines.append("-- ---------------------------------------------------------------- foreign keys (added after all tables exist)")

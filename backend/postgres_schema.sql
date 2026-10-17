@@ -6,7 +6,6 @@
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 
-DROP TABLE IF EXISTS "ai_calls" CASCADE;
 CREATE TABLE "ai_calls" (
   "id" SERIAL,
   "capability" VARCHAR(255) NOT NULL,
@@ -21,7 +20,6 @@ CREATE TABLE "ai_calls" (
   PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "ai_extractions" CASCADE;
 CREATE TABLE "ai_extractions" (
   "id" SERIAL,
   "kind" VARCHAR(24) NOT NULL CHECK (kind IN ('rx_upload', 'lab_report')),
@@ -35,18 +33,15 @@ CREATE TABLE "ai_extractions" (
   "created_at" VARCHAR(19) NOT NULL,
   "updated_at" VARCHAR(19) NOT NULL,
   PRIMARY KEY ("id"),
-  CONSTRAINT "uq_ai_extractions_kind_source_id" UNIQUE ("kind", "source_id"),
-  CONSTRAINT "fk_ai_extractions_0" FOREIGN KEY ("record_id") REFERENCES "health_records" ("id")
+  CONSTRAINT "uq_ai_extractions_kind_source_id" UNIQUE ("kind", "source_id")
 );
 
-DROP TABLE IF EXISTS "app_secrets" CASCADE;
 CREATE TABLE "app_secrets" (
   "key" VARCHAR(255) NOT NULL,
   "value" VARCHAR(255) NOT NULL,
   PRIMARY KEY ("key")
 );
 
-DROP TABLE IF EXISTS "appointments" CASCADE;
 CREATE TABLE "appointments" (
   "id" VARCHAR(36) NOT NULL,
   "reference" VARCHAR(20) NOT NULL UNIQUE,
@@ -82,14 +77,9 @@ CREATE TABLE "appointments" (
   "no_show_risk" INTEGER,
   "risk_nudged_at" VARCHAR(19),
   "attendance_confirmed_at" VARCHAR(19),
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_appointments_0" FOREIGN KEY ("family_member_id") REFERENCES "family_members" ("id"),
-  CONSTRAINT "fk_appointments_1" FOREIGN KEY ("service_id") REFERENCES "services" ("id"),
-  CONSTRAINT "fk_appointments_2" FOREIGN KEY ("patient_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_appointments_3" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "audit_log" CASCADE;
 CREATE TABLE "audit_log" (
   "id" SERIAL,
   "actor_id" INTEGER,
@@ -97,11 +87,9 @@ CREATE TABLE "audit_log" (
   "target" VARCHAR(255),
   "detail" TEXT,
   "created_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_audit_log_0" FOREIGN KEY ("actor_id") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "blocked_times" CASCADE;
 CREATE TABLE "blocked_times" (
   "id" SERIAL,
   "doctor_id" INTEGER NOT NULL,
@@ -110,11 +98,9 @@ CREATE TABLE "blocked_times" (
   "end_time" VARCHAR(5),
   "reason" TEXT,
   "created_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_blocked_times_0" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "companies" CASCADE;
 CREATE TABLE "companies" (
   "id" SERIAL,
   "admin_id" INTEGER NOT NULL UNIQUE,
@@ -130,11 +116,9 @@ CREATE TABLE "companies" (
   "created_at" VARCHAR(19) NOT NULL,
   "approved_at" VARCHAR(19),
   "updated_at" VARCHAR(19),
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_companies_0" FOREIGN KEY ("admin_id") REFERENCES "users" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "conditions" CASCADE;
 CREATE TABLE "conditions" (
   "id" SERIAL,
   "code" VARCHAR(20) NOT NULL UNIQUE,
@@ -143,7 +127,6 @@ CREATE TABLE "conditions" (
   PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "conversation_messages" CASCADE;
 CREATE TABLE "conversation_messages" (
   "id" SERIAL,
   "conversation_id" INTEGER NOT NULL,
@@ -151,12 +134,9 @@ CREATE TABLE "conversation_messages" (
   "author_id" INTEGER,
   "body" TEXT NOT NULL,
   "created_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_conversation_messages_0" FOREIGN KEY ("author_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_conversation_messages_1" FOREIGN KEY ("conversation_id") REFERENCES "conversations" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "conversations" CASCADE;
 CREATE TABLE "conversations" (
   "id" SERIAL,
   "patient_id" INTEGER NOT NULL,
@@ -173,12 +153,9 @@ CREATE TABLE "conversations" (
   "patient_read_at" VARCHAR(19),
   "partner_read_at" VARCHAR(19),
   PRIMARY KEY ("id"),
-  CONSTRAINT "uq_conversations_subject_kind_subject_id" UNIQUE ("subject_kind", "subject_id"),
-  CONSTRAINT "fk_conversations_0" FOREIGN KEY ("partner_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_conversations_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id")
+  CONSTRAINT "uq_conversations_subject_kind_subject_id" UNIQUE ("subject_kind", "subject_id")
 );
 
-DROP TABLE IF EXISTS "courses" CASCADE;
 CREATE TABLE "courses" (
   "id" SERIAL,
   "order_id" VARCHAR(36) NOT NULL,
@@ -198,16 +175,9 @@ CREATE TABLE "courses" (
   "lat" DOUBLE PRECISION,
   "lng" DOUBLE PRECISION,
   PRIMARY KEY ("id"),
-  CONSTRAINT "uq_courses_order_id_prescription_item_id" UNIQUE ("order_id", "prescription_item_id"),
-  CONSTRAINT "fk_courses_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id"),
-  CONSTRAINT "fk_courses_1" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id"),
-  CONSTRAINT "fk_courses_2" FOREIGN KEY ("patient_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_courses_3" FOREIGN KEY ("prescription_item_id") REFERENCES "prescription_items" ("id"),
-  CONSTRAINT "fk_courses_4" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id"),
-  CONSTRAINT "fk_courses_5" FOREIGN KEY ("order_id") REFERENCES "medicine_orders" ("id") ON DELETE CASCADE
+  CONSTRAINT "uq_courses_order_id_prescription_item_id" UNIQUE ("order_id", "prescription_item_id")
 );
 
-DROP TABLE IF EXISTS "divisions" CASCADE;
 CREATE TABLE "divisions" (
   "id" SERIAL,
   "company_id" INTEGER NOT NULL,
@@ -216,22 +186,18 @@ CREATE TABLE "divisions" (
   "active" BOOLEAN NOT NULL DEFAULT TRUE,
   "created_at" VARCHAR(19) NOT NULL,
   PRIMARY KEY ("id"),
-  CONSTRAINT "uq_divisions_company_id_name" UNIQUE ("company_id", "name"),
-  CONSTRAINT "fk_divisions_0" FOREIGN KEY ("company_id") REFERENCES "companies" ("id") ON DELETE CASCADE
+  CONSTRAINT "uq_divisions_company_id_name" UNIQUE ("company_id", "name")
 );
 
-DROP TABLE IF EXISTS "doctor_hours" CASCADE;
 CREATE TABLE "doctor_hours" (
   "id" SERIAL,
   "doctor_id" INTEGER NOT NULL,
   "weekday" INTEGER NOT NULL CHECK (weekday BETWEEN 0 AND 6),
   "start_time" VARCHAR(5) NOT NULL,
   "end_time" VARCHAR(5) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_doctor_hours_0" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "doctors" CASCADE;
 CREATE TABLE "doctors" (
   "user_id" INTEGER NOT NULL,
   "slug" VARCHAR(120) NOT NULL UNIQUE,
@@ -264,11 +230,9 @@ CREATE TABLE "doctors" (
   "home_visit_fee" INTEGER,
   "offers_video" INTEGER NOT NULL DEFAULT 0,
   "video_fee" INTEGER,
-  PRIMARY KEY ("user_id"),
-  CONSTRAINT "fk_doctors_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("user_id")
 );
 
-DROP TABLE IF EXISTS "dose_logs" CASCADE;
 CREATE TABLE "dose_logs" (
   "id" SERIAL,
   "patient_id" INTEGER NOT NULL,
@@ -280,11 +244,9 @@ CREATE TABLE "dose_logs" (
   "status" VARCHAR(24) NOT NULL CHECK (status IN ('taken', 'skipped')),
   "logged_at" VARCHAR(19) NOT NULL,
   PRIMARY KEY ("id"),
-  CONSTRAINT "uq_dose_logs_patient_id_source_source_id_dose_date_slot" UNIQUE ("patient_id", "source", "source_id", "dose_date", "slot"),
-  CONSTRAINT "fk_dose_logs_0" FOREIGN KEY ("patient_id") REFERENCES "users" ("id")
+  CONSTRAINT "uq_dose_logs_patient_id_source_source_id_dose_date_slot" UNIQUE ("patient_id", "source", "source_id", "dose_date", "slot")
 );
 
-DROP TABLE IF EXISTS "family_members" CASCADE;
 CREATE TABLE "family_members" (
   "id" SERIAL,
   "patient_id" INTEGER NOT NULL,
@@ -297,11 +259,9 @@ CREATE TABLE "family_members" (
   "conditions" VARCHAR(255),
   "created_at" VARCHAR(19) NOT NULL,
   "deleted_at" VARCHAR(19),
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_family_members_0" FOREIGN KEY ("patient_id") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "health_records" CASCADE;
 CREATE TABLE "health_records" (
   "id" SERIAL,
   "patient_id" INTEGER NOT NULL,
@@ -323,17 +283,9 @@ CREATE TABLE "health_records" (
   "deleted_at" VARCHAR(19),
   "upload_order_id" VARCHAR(36),
   "family_member_id" INTEGER,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_health_records_0" FOREIGN KEY ("family_member_id") REFERENCES "family_members" ("id"),
-  CONSTRAINT "fk_health_records_1" FOREIGN KEY ("upload_order_id") REFERENCES "upload_orders" ("id"),
-  CONSTRAINT "fk_health_records_2" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id"),
-  CONSTRAINT "fk_health_records_3" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id"),
-  CONSTRAINT "fk_health_records_4" FOREIGN KEY ("lab_booking_id") REFERENCES "lab_bookings" ("id"),
-  CONSTRAINT "fk_health_records_5" FOREIGN KEY ("uploaded_by") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_health_records_6" FOREIGN KEY ("patient_id") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "intel_alerts" CASCADE;
 CREATE TABLE "intel_alerts" (
   "id" SERIAL,
   "kind" VARCHAR(24) NOT NULL,
@@ -345,7 +297,6 @@ CREATE TABLE "intel_alerts" (
   CONSTRAINT "uq_intel_alerts_kind_subject_id_period" UNIQUE ("kind", "subject_id", "period")
 );
 
-DROP TABLE IF EXISTS "lab_booking_items" CASCADE;
 CREATE TABLE "lab_booking_items" (
   "id" SERIAL,
   "booking_id" VARCHAR(36) NOT NULL,
@@ -353,13 +304,9 @@ CREATE TABLE "lab_booking_items" (
   "test_id" INTEGER,
   "name" VARCHAR(255) NOT NULL,
   "price_paise" BIGINT NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_lab_booking_items_0" FOREIGN KEY ("test_id") REFERENCES "lab_tests" ("id"),
-  CONSTRAINT "fk_lab_booking_items_1" FOREIGN KEY ("prescription_test_id") REFERENCES "prescription_tests" ("id"),
-  CONSTRAINT "fk_lab_booking_items_2" FOREIGN KEY ("booking_id") REFERENCES "lab_bookings" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "lab_bookings" CASCADE;
 CREATE TABLE "lab_bookings" (
   "id" VARCHAR(36) NOT NULL,
   "reference" VARCHAR(20) NOT NULL UNIQUE,
@@ -382,14 +329,9 @@ CREATE TABLE "lab_bookings" (
   "reminded_at" VARCHAR(19),
   "created_at" VARCHAR(19) NOT NULL,
   "updated_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_lab_bookings_0" FOREIGN KEY ("quote_id") REFERENCES "lab_quotes" ("id"),
-  CONSTRAINT "fk_lab_bookings_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_lab_bookings_2" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id"),
-  CONSTRAINT "fk_lab_bookings_3" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "lab_prices" CASCADE;
 CREATE TABLE "lab_prices" (
   "lab_id" INTEGER NOT NULL,
   "test_id" INTEGER NOT NULL,
@@ -398,23 +340,17 @@ CREATE TABLE "lab_prices" (
   "available" BOOLEAN NOT NULL DEFAULT TRUE,
   "report_hours" INTEGER,
   "updated_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("lab_id", "test_id"),
-  CONSTRAINT "fk_lab_prices_0" FOREIGN KEY ("test_id") REFERENCES "lab_tests" ("id"),
-  CONSTRAINT "fk_lab_prices_1" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id") ON DELETE CASCADE
+  PRIMARY KEY ("lab_id", "test_id")
 );
 
-DROP TABLE IF EXISTS "lab_quote_items" CASCADE;
 CREATE TABLE "lab_quote_items" (
   "quote_id" INTEGER NOT NULL,
   "prescription_test_id" INTEGER NOT NULL,
   "available" BOOLEAN NOT NULL,
   "price_paise" BIGINT NOT NULL DEFAULT 0,
-  "mrp_paise" BIGINT,
-  CONSTRAINT "fk_lab_quote_items_0" FOREIGN KEY ("prescription_test_id") REFERENCES "prescription_tests" ("id"),
-  CONSTRAINT "fk_lab_quote_items_1" FOREIGN KEY ("quote_id") REFERENCES "lab_quotes" ("id") ON DELETE CASCADE
+  "mrp_paise" BIGINT
 );
 
-DROP TABLE IF EXISTS "lab_quotes" CASCADE;
 CREATE TABLE "lab_quotes" (
   "id" SERIAL,
   "prescription_id" VARCHAR(36) NOT NULL,
@@ -427,12 +363,9 @@ CREATE TABLE "lab_quotes" (
   "status" VARCHAR(24) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'withdrawn', 'accepted', 'lost')),
   "created_at" VARCHAR(19) NOT NULL,
   "valid_until" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_lab_quotes_0" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id"),
-  CONSTRAINT "fk_lab_quotes_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "lab_requests" CASCADE;
 CREATE TABLE "lab_requests" (
   "id" SERIAL,
   "prescription_id" VARCHAR(36) NOT NULL,
@@ -443,12 +376,9 @@ CREATE TABLE "lab_requests" (
   "updated_at" VARCHAR(19) NOT NULL,
   "outcome" VARCHAR(20),
   PRIMARY KEY ("id"),
-  CONSTRAINT "uq_lab_requests_prescription_id_lab_id" UNIQUE ("prescription_id", "lab_id"),
-  CONSTRAINT "fk_lab_requests_0" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id"),
-  CONSTRAINT "fk_lab_requests_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE
+  CONSTRAINT "uq_lab_requests_prescription_id_lab_id" UNIQUE ("prescription_id", "lab_id")
 );
 
-DROP TABLE IF EXISTS "lab_tests" CASCADE;
 CREATE TABLE "lab_tests" (
   "id" SERIAL,
   "name" VARCHAR(255) NOT NULL,
@@ -462,11 +392,9 @@ CREATE TABLE "lab_tests" (
   "ref_high" DOUBLE PRECISION,
   "created_by" INTEGER,
   "created_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_lab_tests_0" FOREIGN KEY ("created_by") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "labs" CASCADE;
 CREATE TABLE "labs" (
   "user_id" INTEGER NOT NULL,
   "slug" VARCHAR(120) NOT NULL UNIQUE,
@@ -493,17 +421,14 @@ CREATE TABLE "labs" (
   "created_at" VARCHAR(19) NOT NULL,
   "approved_at" VARCHAR(19),
   "updated_at" VARCHAR(19),
-  PRIMARY KEY ("user_id"),
-  CONSTRAINT "fk_labs_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("user_id")
 );
 
-DROP TABLE IF EXISTS "login_failures" CASCADE;
 CREATE TABLE "login_failures" (
   "email" VARCHAR(254) NOT NULL,
   "failed_at" VARCHAR(19) NOT NULL
 );
 
-DROP TABLE IF EXISTS "medicine_orders" CASCADE;
 CREATE TABLE "medicine_orders" (
   "id" VARCHAR(36) NOT NULL,
   "reference" VARCHAR(20) NOT NULL UNIQUE,
@@ -529,14 +454,9 @@ CREATE TABLE "medicine_orders" (
   "updated_at" VARCHAR(19) NOT NULL,
   "delivery_otp" VARCHAR(255),
   "reminded_at" VARCHAR(19),
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_medicine_orders_0" FOREIGN KEY ("quote_id") REFERENCES "quotes" ("id"),
-  CONSTRAINT "fk_medicine_orders_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_medicine_orders_2" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id"),
-  CONSTRAINT "fk_medicine_orders_3" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "medicines" CASCADE;
 CREATE TABLE "medicines" (
   "id" SERIAL,
   "name" VARCHAR(255) NOT NULL,
@@ -553,12 +473,9 @@ CREATE TABLE "medicines" (
   "company_id" INTEGER,
   "salt_key" VARCHAR(255),
   "strength_key" VARCHAR(255),
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_medicines_0" FOREIGN KEY ("company_id") REFERENCES "companies" ("id"),
-  CONSTRAINT "fk_medicines_1" FOREIGN KEY ("created_by") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "messages" CASCADE;
 CREATE TABLE "messages" (
   "id" SERIAL,
   "appointment_id" VARCHAR(36) NOT NULL,
@@ -566,12 +483,9 @@ CREATE TABLE "messages" (
   "author_role" VARCHAR(20) NOT NULL,
   "body" TEXT NOT NULL,
   "created_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_messages_0" FOREIGN KEY ("author_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_messages_1" FOREIGN KEY ("appointment_id") REFERENCES "appointments" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "mr_requests" CASCADE;
 CREATE TABLE "mr_requests" (
   "id" SERIAL,
   "mr_id" INTEGER NOT NULL,
@@ -587,14 +501,9 @@ CREATE TABLE "mr_requests" (
   "scheduled_for" VARCHAR(19),
   "created_at" VARCHAR(19) NOT NULL,
   "updated_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_mr_requests_0" FOREIGN KEY ("division_id") REFERENCES "divisions" ("id"),
-  CONSTRAINT "fk_mr_requests_1" FOREIGN KEY ("company_id") REFERENCES "companies" ("id"),
-  CONSTRAINT "fk_mr_requests_2" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id"),
-  CONSTRAINT "fk_mr_requests_3" FOREIGN KEY ("mr_id") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "mrs" CASCADE;
 CREATE TABLE "mrs" (
   "user_id" INTEGER NOT NULL,
   "company_id" INTEGER NOT NULL,
@@ -603,13 +512,9 @@ CREATE TABLE "mrs" (
   "territory_city" VARCHAR(255),
   "territory_state" VARCHAR(255),
   "created_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("user_id"),
-  CONSTRAINT "fk_mrs_0" FOREIGN KEY ("division_id") REFERENCES "divisions" ("id"),
-  CONSTRAINT "fk_mrs_1" FOREIGN KEY ("company_id") REFERENCES "companies" ("id"),
-  CONSTRAINT "fk_mrs_2" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("user_id")
 );
 
-DROP TABLE IF EXISTS "notifications" CASCADE;
 CREATE TABLE "notifications" (
   "id" SERIAL,
   "user_id" INTEGER NOT NULL,
@@ -619,11 +524,9 @@ CREATE TABLE "notifications" (
   "link" VARCHAR(255),
   "created_at" VARCHAR(19) NOT NULL,
   "read_at" VARCHAR(19),
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_notifications_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "order_items" CASCADE;
 CREATE TABLE "order_items" (
   "id" SERIAL,
   "order_id" VARCHAR(36) NOT NULL,
@@ -633,23 +536,17 @@ CREATE TABLE "order_items" (
   "quantity" INTEGER NOT NULL,
   "unit_price_paise" BIGINT NOT NULL,
   "line_paise" BIGINT NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_order_items_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id"),
-  CONSTRAINT "fk_order_items_1" FOREIGN KEY ("prescription_item_id") REFERENCES "prescription_items" ("id"),
-  CONSTRAINT "fk_order_items_2" FOREIGN KEY ("order_id") REFERENCES "medicine_orders" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "password_resets" CASCADE;
 CREATE TABLE "password_resets" (
   "token_hash" VARCHAR(64) NOT NULL,
   "user_id" INTEGER NOT NULL,
   "expires_at" VARCHAR(19) NOT NULL,
   "used_at" VARCHAR(19),
-  PRIMARY KEY ("token_hash"),
-  CONSTRAINT "fk_password_resets_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("token_hash")
 );
 
-DROP TABLE IF EXISTS "patient_medicines" CASCADE;
 CREATE TABLE "patient_medicines" (
   "id" SERIAL,
   "patient_id" INTEGER NOT NULL,
@@ -664,12 +561,9 @@ CREATE TABLE "patient_medicines" (
   "updated_at" VARCHAR(19) NOT NULL,
   "generic_name" VARCHAR(255),
   "medicine_id" INTEGER,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_patient_medicines_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id"),
-  CONSTRAINT "fk_patient_medicines_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "payouts" CASCADE;
 CREATE TABLE "payouts" (
   "id" SERIAL,
   "payee_role" VARCHAR(255) NOT NULL CHECK (payee_role IN ('doctor', 'pharmacy')),
@@ -679,12 +573,9 @@ CREATE TABLE "payouts" (
   "note" TEXT,
   "created_by" INTEGER,
   "created_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_payouts_0" FOREIGN KEY ("created_by") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_payouts_1" FOREIGN KEY ("payee_id") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "pharmacies" CASCADE;
 CREATE TABLE "pharmacies" (
   "user_id" INTEGER NOT NULL,
   "slug" VARCHAR(120) NOT NULL UNIQUE,
@@ -712,11 +603,9 @@ CREATE TABLE "pharmacies" (
   "pickup_ready_minutes" INTEGER NOT NULL DEFAULT 15,
   "delivery_minutes" INTEGER NOT NULL DEFAULT 60,
   "state" VARCHAR(60),
-  PRIMARY KEY ("user_id"),
-  CONSTRAINT "fk_pharmacies_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("user_id")
 );
 
-DROP TABLE IF EXISTS "pharmacy_stock" CASCADE;
 CREATE TABLE "pharmacy_stock" (
   "pharmacy_id" INTEGER NOT NULL,
   "medicine_id" INTEGER NOT NULL,
@@ -725,21 +614,15 @@ CREATE TABLE "pharmacy_stock" (
   "in_stock" BOOLEAN NOT NULL DEFAULT TRUE,
   "updated_at" VARCHAR(19) NOT NULL,
   "on_hand" INTEGER,
-  PRIMARY KEY ("pharmacy_id", "medicine_id"),
-  CONSTRAINT "fk_pharmacy_stock_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id"),
-  CONSTRAINT "fk_pharmacy_stock_1" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id") ON DELETE CASCADE
+  PRIMARY KEY ("pharmacy_id", "medicine_id")
 );
 
-DROP TABLE IF EXISTS "prescription_conditions" CASCADE;
 CREATE TABLE "prescription_conditions" (
   "prescription_id" VARCHAR(36) NOT NULL,
   "condition_id" INTEGER NOT NULL,
-  PRIMARY KEY ("prescription_id", "condition_id"),
-  CONSTRAINT "fk_prescription_conditions_0" FOREIGN KEY ("condition_id") REFERENCES "conditions" ("id"),
-  CONSTRAINT "fk_prescription_conditions_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("prescription_id", "condition_id")
 );
 
-DROP TABLE IF EXISTS "prescription_items" CASCADE;
 CREATE TABLE "prescription_items" (
   "id" SERIAL,
   "prescription_id" VARCHAR(36) NOT NULL,
@@ -756,24 +639,18 @@ CREATE TABLE "prescription_items" (
   "daily_units" DOUBLE PRECISION,
   "duration_days" INTEGER,
   "is_long_term" BOOLEAN NOT NULL DEFAULT FALSE,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_prescription_items_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id"),
-  CONSTRAINT "fk_prescription_items_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "prescription_tests" CASCADE;
 CREATE TABLE "prescription_tests" (
   "id" SERIAL,
   "prescription_id" VARCHAR(36) NOT NULL,
   "test_id" INTEGER,
   "name" VARCHAR(255) NOT NULL,
   "instructions" TEXT,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_prescription_tests_0" FOREIGN KEY ("test_id") REFERENCES "lab_tests" ("id"),
-  CONSTRAINT "fk_prescription_tests_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "prescriptions" CASCADE;
 CREATE TABLE "prescriptions" (
   "id" VARCHAR(36) NOT NULL,
   "reference" VARCHAR(20) NOT NULL UNIQUE,
@@ -804,15 +681,9 @@ CREATE TABLE "prescriptions" (
   "pregnancy" VARCHAR(255),
   "safety_alerts" TEXT,
   "safety_ack_at" VARCHAR(19),
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_prescriptions_0" FOREIGN KEY ("family_member_id") REFERENCES "family_members" ("id"),
-  CONSTRAINT "fk_prescriptions_1" FOREIGN KEY ("parent_id") REFERENCES "prescriptions" ("id"),
-  CONSTRAINT "fk_prescriptions_2" FOREIGN KEY ("patient_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_prescriptions_3" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id"),
-  CONSTRAINT "fk_prescriptions_4" FOREIGN KEY ("appointment_id") REFERENCES "appointments" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "quote_items" CASCADE;
 CREATE TABLE "quote_items" (
   "quote_id" INTEGER NOT NULL,
   "prescription_item_id" INTEGER NOT NULL,
@@ -821,12 +692,9 @@ CREATE TABLE "quote_items" (
   "unit_price_paise" BIGINT NOT NULL DEFAULT 0,
   "quantity" INTEGER NOT NULL,
   "line_paise" BIGINT NOT NULL DEFAULT 0,
-  "mrp_paise" BIGINT,
-  CONSTRAINT "fk_quote_items_0" FOREIGN KEY ("prescription_item_id") REFERENCES "prescription_items" ("id"),
-  CONSTRAINT "fk_quote_items_1" FOREIGN KEY ("quote_id") REFERENCES "quotes" ("id") ON DELETE CASCADE
+  "mrp_paise" BIGINT
 );
 
-DROP TABLE IF EXISTS "quotes" CASCADE;
 CREATE TABLE "quotes" (
   "id" SERIAL,
   "prescription_id" VARCHAR(36) NOT NULL,
@@ -840,18 +708,14 @@ CREATE TABLE "quotes" (
   "created_at" VARCHAR(19) NOT NULL,
   "valid_until" VARCHAR(19) NOT NULL,
   "delivery_minutes" INTEGER,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_quotes_0" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id"),
-  CONSTRAINT "fk_quotes_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "rate_limits" CASCADE;
 CREATE TABLE "rate_limits" (
   "key" VARCHAR(255) NOT NULL,
   "hit_at" VARCHAR(19) NOT NULL
 );
 
-DROP TABLE IF EXISTS "record_values" CASCADE;
 CREATE TABLE "record_values" (
   "id" SERIAL,
   "record_id" INTEGER NOT NULL,
@@ -863,12 +727,9 @@ CREATE TABLE "record_values" (
   "ref_low" DOUBLE PRECISION,
   "ref_high" DOUBLE PRECISION,
   "flag" VARCHAR(10) CHECK (flag IN ('low', 'normal', 'high')),
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_record_values_0" FOREIGN KEY ("test_id") REFERENCES "lab_tests" ("id"),
-  CONSTRAINT "fk_record_values_1" FOREIGN KEY ("record_id") REFERENCES "health_records" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "reviews" CASCADE;
 CREATE TABLE "reviews" (
   "id" SERIAL,
   "patient_id" INTEGER NOT NULL,
@@ -879,14 +740,9 @@ CREATE TABLE "reviews" (
   "rating" INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
   "comment" VARCHAR(255),
   "created_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_reviews_0" FOREIGN KEY ("order_id") REFERENCES "medicine_orders" ("id"),
-  CONSTRAINT "fk_reviews_1" FOREIGN KEY ("appointment_id") REFERENCES "appointments" ("id"),
-  CONSTRAINT "fk_reviews_2" FOREIGN KEY ("target_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_reviews_3" FOREIGN KEY ("patient_id") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "rx_requests" CASCADE;
 CREATE TABLE "rx_requests" (
   "id" SERIAL,
   "prescription_id" VARCHAR(36) NOT NULL,
@@ -897,12 +753,9 @@ CREATE TABLE "rx_requests" (
   "updated_at" VARCHAR(19) NOT NULL,
   "outcome" VARCHAR(20),
   PRIMARY KEY ("id"),
-  CONSTRAINT "uq_rx_requests_prescription_id_pharmacy_id" UNIQUE ("prescription_id", "pharmacy_id"),
-  CONSTRAINT "fk_rx_requests_0" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id"),
-  CONSTRAINT "fk_rx_requests_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE
+  CONSTRAINT "uq_rx_requests_prescription_id_pharmacy_id" UNIQUE ("prescription_id", "pharmacy_id")
 );
 
-DROP TABLE IF EXISTS "rx_uploads" CASCADE;
 CREATE TABLE "rx_uploads" (
   "id" VARCHAR(36) NOT NULL,
   "reference" VARCHAR(20) NOT NULL UNIQUE,
@@ -919,12 +772,9 @@ CREATE TABLE "rx_uploads" (
   "valid_until" VARCHAR(19) NOT NULL,
   "ai_read_consent" BOOLEAN NOT NULL DEFAULT FALSE,
   "typed_lines" TEXT,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_rx_uploads_0" FOREIGN KEY ("record_id") REFERENCES "health_records" ("id"),
-  CONSTRAINT "fk_rx_uploads_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "services" CASCADE;
 CREATE TABLE "services" (
   "id" SERIAL,
   "doctor_id" INTEGER NOT NULL,
@@ -932,21 +782,17 @@ CREATE TABLE "services" (
   "duration" INTEGER NOT NULL,
   "fee" INTEGER NOT NULL,
   "active" BOOLEAN NOT NULL DEFAULT TRUE,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_services_0" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "sessions" CASCADE;
 CREATE TABLE "sessions" (
   "token_hash" VARCHAR(64) NOT NULL,
   "user_id" INTEGER NOT NULL,
   "created_at" VARCHAR(19) NOT NULL,
   "expires_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("token_hash"),
-  CONSTRAINT "fk_sessions_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("token_hash")
 );
 
-DROP TABLE IF EXISTS "upload_orders" CASCADE;
 CREATE TABLE "upload_orders" (
   "id" VARCHAR(36) NOT NULL,
   "reference" VARCHAR(20) NOT NULL UNIQUE,
@@ -968,14 +814,9 @@ CREATE TABLE "upload_orders" (
   "handover_code" VARCHAR(255),
   "created_at" VARCHAR(19) NOT NULL,
   "updated_at" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_upload_orders_0" FOREIGN KEY ("partner_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_upload_orders_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_upload_orders_2" FOREIGN KEY ("quote_id") REFERENCES "upload_quotes" ("id"),
-  CONSTRAINT "fk_upload_orders_3" FOREIGN KEY ("upload_id") REFERENCES "rx_uploads" ("id")
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "upload_quote_lines" CASCADE;
 CREATE TABLE "upload_quote_lines" (
   "id" SERIAL,
   "quote_id" INTEGER NOT NULL,
@@ -985,12 +826,9 @@ CREATE TABLE "upload_quote_lines" (
   "unit_price_paise" BIGINT NOT NULL DEFAULT 0,
   "mrp_paise" BIGINT,
   "medicine_id" INTEGER,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_upload_quote_lines_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id"),
-  CONSTRAINT "fk_upload_quote_lines_1" FOREIGN KEY ("quote_id") REFERENCES "upload_quotes" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "upload_quotes" CASCADE;
 CREATE TABLE "upload_quotes" (
   "id" SERIAL,
   "upload_id" VARCHAR(36) NOT NULL,
@@ -1008,12 +846,9 @@ CREATE TABLE "upload_quotes" (
   "status" VARCHAR(24) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'withdrawn', 'accepted', 'lost')),
   "created_at" VARCHAR(19) NOT NULL,
   "valid_until" VARCHAR(19) NOT NULL,
-  PRIMARY KEY ("id"),
-  CONSTRAINT "fk_upload_quotes_0" FOREIGN KEY ("partner_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_upload_quotes_1" FOREIGN KEY ("upload_id") REFERENCES "rx_uploads" ("id") ON DELETE CASCADE
+  PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS "upload_requests" CASCADE;
 CREATE TABLE "upload_requests" (
   "id" SERIAL,
   "upload_id" VARCHAR(36) NOT NULL,
@@ -1025,12 +860,9 @@ CREATE TABLE "upload_requests" (
   "updated_at" VARCHAR(19) NOT NULL,
   "outcome" VARCHAR(20),
   PRIMARY KEY ("id"),
-  CONSTRAINT "uq_upload_requests_upload_id_partner_id" UNIQUE ("upload_id", "partner_id"),
-  CONSTRAINT "fk_upload_requests_0" FOREIGN KEY ("partner_id") REFERENCES "users" ("id"),
-  CONSTRAINT "fk_upload_requests_1" FOREIGN KEY ("upload_id") REFERENCES "rx_uploads" ("id") ON DELETE CASCADE
+  CONSTRAINT "uq_upload_requests_upload_id_partner_id" UNIQUE ("upload_id", "partner_id")
 );
 
-DROP TABLE IF EXISTS "users" CASCADE;
 CREATE TABLE "users" (
   "id" SERIAL,
   "role" VARCHAR(20) NOT NULL CHECK (role IN ('patient', 'doctor', 'admin', 'pharmacy', 'company', 'mr', 'lab')),
@@ -1060,6 +892,119 @@ CREATE TABLE "users" (
   "dose_digest_on" VARCHAR(255),
   PRIMARY KEY ("id")
 );
+
+-- ---------------------------------------------------------------- foreign keys (added after all tables exist)
+ALTER TABLE "ai_extractions" ADD CONSTRAINT "fk_ai_extractions_0" FOREIGN KEY ("record_id") REFERENCES "health_records" ("id");
+ALTER TABLE "appointments" ADD CONSTRAINT "fk_appointments_0" FOREIGN KEY ("family_member_id") REFERENCES "family_members" ("id");
+ALTER TABLE "appointments" ADD CONSTRAINT "fk_appointments_1" FOREIGN KEY ("service_id") REFERENCES "services" ("id");
+ALTER TABLE "appointments" ADD CONSTRAINT "fk_appointments_2" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "appointments" ADD CONSTRAINT "fk_appointments_3" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id");
+ALTER TABLE "audit_log" ADD CONSTRAINT "fk_audit_log_0" FOREIGN KEY ("actor_id") REFERENCES "users" ("id");
+ALTER TABLE "blocked_times" ADD CONSTRAINT "fk_blocked_times_0" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id") ON DELETE CASCADE;
+ALTER TABLE "companies" ADD CONSTRAINT "fk_companies_0" FOREIGN KEY ("admin_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "conversation_messages" ADD CONSTRAINT "fk_conversation_messages_0" FOREIGN KEY ("author_id") REFERENCES "users" ("id");
+ALTER TABLE "conversation_messages" ADD CONSTRAINT "fk_conversation_messages_1" FOREIGN KEY ("conversation_id") REFERENCES "conversations" ("id") ON DELETE CASCADE;
+ALTER TABLE "conversations" ADD CONSTRAINT "fk_conversations_0" FOREIGN KEY ("partner_id") REFERENCES "users" ("id");
+ALTER TABLE "conversations" ADD CONSTRAINT "fk_conversations_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "courses" ADD CONSTRAINT "fk_courses_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id");
+ALTER TABLE "courses" ADD CONSTRAINT "fk_courses_1" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id");
+ALTER TABLE "courses" ADD CONSTRAINT "fk_courses_2" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "courses" ADD CONSTRAINT "fk_courses_3" FOREIGN KEY ("prescription_item_id") REFERENCES "prescription_items" ("id");
+ALTER TABLE "courses" ADD CONSTRAINT "fk_courses_4" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id");
+ALTER TABLE "courses" ADD CONSTRAINT "fk_courses_5" FOREIGN KEY ("order_id") REFERENCES "medicine_orders" ("id") ON DELETE CASCADE;
+ALTER TABLE "divisions" ADD CONSTRAINT "fk_divisions_0" FOREIGN KEY ("company_id") REFERENCES "companies" ("id") ON DELETE CASCADE;
+ALTER TABLE "doctor_hours" ADD CONSTRAINT "fk_doctor_hours_0" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id") ON DELETE CASCADE;
+ALTER TABLE "doctors" ADD CONSTRAINT "fk_doctors_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "dose_logs" ADD CONSTRAINT "fk_dose_logs_0" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "family_members" ADD CONSTRAINT "fk_family_members_0" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "health_records" ADD CONSTRAINT "fk_health_records_0" FOREIGN KEY ("family_member_id") REFERENCES "family_members" ("id");
+ALTER TABLE "health_records" ADD CONSTRAINT "fk_health_records_1" FOREIGN KEY ("upload_order_id") REFERENCES "upload_orders" ("id");
+ALTER TABLE "health_records" ADD CONSTRAINT "fk_health_records_2" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id");
+ALTER TABLE "health_records" ADD CONSTRAINT "fk_health_records_3" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id");
+ALTER TABLE "health_records" ADD CONSTRAINT "fk_health_records_4" FOREIGN KEY ("lab_booking_id") REFERENCES "lab_bookings" ("id");
+ALTER TABLE "health_records" ADD CONSTRAINT "fk_health_records_5" FOREIGN KEY ("uploaded_by") REFERENCES "users" ("id");
+ALTER TABLE "health_records" ADD CONSTRAINT "fk_health_records_6" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "lab_booking_items" ADD CONSTRAINT "fk_lab_booking_items_0" FOREIGN KEY ("test_id") REFERENCES "lab_tests" ("id");
+ALTER TABLE "lab_booking_items" ADD CONSTRAINT "fk_lab_booking_items_1" FOREIGN KEY ("prescription_test_id") REFERENCES "prescription_tests" ("id");
+ALTER TABLE "lab_booking_items" ADD CONSTRAINT "fk_lab_booking_items_2" FOREIGN KEY ("booking_id") REFERENCES "lab_bookings" ("id") ON DELETE CASCADE;
+ALTER TABLE "lab_bookings" ADD CONSTRAINT "fk_lab_bookings_0" FOREIGN KEY ("quote_id") REFERENCES "lab_quotes" ("id");
+ALTER TABLE "lab_bookings" ADD CONSTRAINT "fk_lab_bookings_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "lab_bookings" ADD CONSTRAINT "fk_lab_bookings_2" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id");
+ALTER TABLE "lab_bookings" ADD CONSTRAINT "fk_lab_bookings_3" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id");
+ALTER TABLE "lab_prices" ADD CONSTRAINT "fk_lab_prices_0" FOREIGN KEY ("test_id") REFERENCES "lab_tests" ("id");
+ALTER TABLE "lab_prices" ADD CONSTRAINT "fk_lab_prices_1" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id") ON DELETE CASCADE;
+ALTER TABLE "lab_quote_items" ADD CONSTRAINT "fk_lab_quote_items_0" FOREIGN KEY ("prescription_test_id") REFERENCES "prescription_tests" ("id");
+ALTER TABLE "lab_quote_items" ADD CONSTRAINT "fk_lab_quote_items_1" FOREIGN KEY ("quote_id") REFERENCES "lab_quotes" ("id") ON DELETE CASCADE;
+ALTER TABLE "lab_quotes" ADD CONSTRAINT "fk_lab_quotes_0" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id");
+ALTER TABLE "lab_quotes" ADD CONSTRAINT "fk_lab_quotes_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE;
+ALTER TABLE "lab_requests" ADD CONSTRAINT "fk_lab_requests_0" FOREIGN KEY ("lab_id") REFERENCES "labs" ("user_id");
+ALTER TABLE "lab_requests" ADD CONSTRAINT "fk_lab_requests_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE;
+ALTER TABLE "lab_tests" ADD CONSTRAINT "fk_lab_tests_0" FOREIGN KEY ("created_by") REFERENCES "users" ("id");
+ALTER TABLE "labs" ADD CONSTRAINT "fk_labs_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "medicine_orders" ADD CONSTRAINT "fk_medicine_orders_0" FOREIGN KEY ("quote_id") REFERENCES "quotes" ("id");
+ALTER TABLE "medicine_orders" ADD CONSTRAINT "fk_medicine_orders_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "medicine_orders" ADD CONSTRAINT "fk_medicine_orders_2" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id");
+ALTER TABLE "medicine_orders" ADD CONSTRAINT "fk_medicine_orders_3" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id");
+ALTER TABLE "medicines" ADD CONSTRAINT "fk_medicines_0" FOREIGN KEY ("company_id") REFERENCES "companies" ("id");
+ALTER TABLE "medicines" ADD CONSTRAINT "fk_medicines_1" FOREIGN KEY ("created_by") REFERENCES "users" ("id");
+ALTER TABLE "messages" ADD CONSTRAINT "fk_messages_0" FOREIGN KEY ("author_id") REFERENCES "users" ("id");
+ALTER TABLE "messages" ADD CONSTRAINT "fk_messages_1" FOREIGN KEY ("appointment_id") REFERENCES "appointments" ("id") ON DELETE CASCADE;
+ALTER TABLE "mr_requests" ADD CONSTRAINT "fk_mr_requests_0" FOREIGN KEY ("division_id") REFERENCES "divisions" ("id");
+ALTER TABLE "mr_requests" ADD CONSTRAINT "fk_mr_requests_1" FOREIGN KEY ("company_id") REFERENCES "companies" ("id");
+ALTER TABLE "mr_requests" ADD CONSTRAINT "fk_mr_requests_2" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id");
+ALTER TABLE "mr_requests" ADD CONSTRAINT "fk_mr_requests_3" FOREIGN KEY ("mr_id") REFERENCES "users" ("id");
+ALTER TABLE "mrs" ADD CONSTRAINT "fk_mrs_0" FOREIGN KEY ("division_id") REFERENCES "divisions" ("id");
+ALTER TABLE "mrs" ADD CONSTRAINT "fk_mrs_1" FOREIGN KEY ("company_id") REFERENCES "companies" ("id");
+ALTER TABLE "mrs" ADD CONSTRAINT "fk_mrs_2" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "notifications" ADD CONSTRAINT "fk_notifications_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "order_items" ADD CONSTRAINT "fk_order_items_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id");
+ALTER TABLE "order_items" ADD CONSTRAINT "fk_order_items_1" FOREIGN KEY ("prescription_item_id") REFERENCES "prescription_items" ("id");
+ALTER TABLE "order_items" ADD CONSTRAINT "fk_order_items_2" FOREIGN KEY ("order_id") REFERENCES "medicine_orders" ("id") ON DELETE CASCADE;
+ALTER TABLE "password_resets" ADD CONSTRAINT "fk_password_resets_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "patient_medicines" ADD CONSTRAINT "fk_patient_medicines_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id");
+ALTER TABLE "patient_medicines" ADD CONSTRAINT "fk_patient_medicines_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "payouts" ADD CONSTRAINT "fk_payouts_0" FOREIGN KEY ("created_by") REFERENCES "users" ("id");
+ALTER TABLE "payouts" ADD CONSTRAINT "fk_payouts_1" FOREIGN KEY ("payee_id") REFERENCES "users" ("id");
+ALTER TABLE "pharmacies" ADD CONSTRAINT "fk_pharmacies_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "pharmacy_stock" ADD CONSTRAINT "fk_pharmacy_stock_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id");
+ALTER TABLE "pharmacy_stock" ADD CONSTRAINT "fk_pharmacy_stock_1" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id") ON DELETE CASCADE;
+ALTER TABLE "prescription_conditions" ADD CONSTRAINT "fk_prescription_conditions_0" FOREIGN KEY ("condition_id") REFERENCES "conditions" ("id");
+ALTER TABLE "prescription_conditions" ADD CONSTRAINT "fk_prescription_conditions_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE;
+ALTER TABLE "prescription_items" ADD CONSTRAINT "fk_prescription_items_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id");
+ALTER TABLE "prescription_items" ADD CONSTRAINT "fk_prescription_items_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE;
+ALTER TABLE "prescription_tests" ADD CONSTRAINT "fk_prescription_tests_0" FOREIGN KEY ("test_id") REFERENCES "lab_tests" ("id");
+ALTER TABLE "prescription_tests" ADD CONSTRAINT "fk_prescription_tests_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE;
+ALTER TABLE "prescriptions" ADD CONSTRAINT "fk_prescriptions_0" FOREIGN KEY ("family_member_id") REFERENCES "family_members" ("id");
+ALTER TABLE "prescriptions" ADD CONSTRAINT "fk_prescriptions_1" FOREIGN KEY ("parent_id") REFERENCES "prescriptions" ("id");
+ALTER TABLE "prescriptions" ADD CONSTRAINT "fk_prescriptions_2" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "prescriptions" ADD CONSTRAINT "fk_prescriptions_3" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id");
+ALTER TABLE "prescriptions" ADD CONSTRAINT "fk_prescriptions_4" FOREIGN KEY ("appointment_id") REFERENCES "appointments" ("id");
+ALTER TABLE "quote_items" ADD CONSTRAINT "fk_quote_items_0" FOREIGN KEY ("prescription_item_id") REFERENCES "prescription_items" ("id");
+ALTER TABLE "quote_items" ADD CONSTRAINT "fk_quote_items_1" FOREIGN KEY ("quote_id") REFERENCES "quotes" ("id") ON DELETE CASCADE;
+ALTER TABLE "quotes" ADD CONSTRAINT "fk_quotes_0" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id");
+ALTER TABLE "quotes" ADD CONSTRAINT "fk_quotes_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE;
+ALTER TABLE "record_values" ADD CONSTRAINT "fk_record_values_0" FOREIGN KEY ("test_id") REFERENCES "lab_tests" ("id");
+ALTER TABLE "record_values" ADD CONSTRAINT "fk_record_values_1" FOREIGN KEY ("record_id") REFERENCES "health_records" ("id") ON DELETE CASCADE;
+ALTER TABLE "reviews" ADD CONSTRAINT "fk_reviews_0" FOREIGN KEY ("order_id") REFERENCES "medicine_orders" ("id");
+ALTER TABLE "reviews" ADD CONSTRAINT "fk_reviews_1" FOREIGN KEY ("appointment_id") REFERENCES "appointments" ("id");
+ALTER TABLE "reviews" ADD CONSTRAINT "fk_reviews_2" FOREIGN KEY ("target_id") REFERENCES "users" ("id");
+ALTER TABLE "reviews" ADD CONSTRAINT "fk_reviews_3" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "rx_requests" ADD CONSTRAINT "fk_rx_requests_0" FOREIGN KEY ("pharmacy_id") REFERENCES "pharmacies" ("user_id");
+ALTER TABLE "rx_requests" ADD CONSTRAINT "fk_rx_requests_1" FOREIGN KEY ("prescription_id") REFERENCES "prescriptions" ("id") ON DELETE CASCADE;
+ALTER TABLE "rx_uploads" ADD CONSTRAINT "fk_rx_uploads_0" FOREIGN KEY ("record_id") REFERENCES "health_records" ("id");
+ALTER TABLE "rx_uploads" ADD CONSTRAINT "fk_rx_uploads_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "services" ADD CONSTRAINT "fk_services_0" FOREIGN KEY ("doctor_id") REFERENCES "doctors" ("user_id") ON DELETE CASCADE;
+ALTER TABLE "sessions" ADD CONSTRAINT "fk_sessions_0" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "upload_orders" ADD CONSTRAINT "fk_upload_orders_0" FOREIGN KEY ("partner_id") REFERENCES "users" ("id");
+ALTER TABLE "upload_orders" ADD CONSTRAINT "fk_upload_orders_1" FOREIGN KEY ("patient_id") REFERENCES "users" ("id");
+ALTER TABLE "upload_orders" ADD CONSTRAINT "fk_upload_orders_2" FOREIGN KEY ("quote_id") REFERENCES "upload_quotes" ("id");
+ALTER TABLE "upload_orders" ADD CONSTRAINT "fk_upload_orders_3" FOREIGN KEY ("upload_id") REFERENCES "rx_uploads" ("id");
+ALTER TABLE "upload_quote_lines" ADD CONSTRAINT "fk_upload_quote_lines_0" FOREIGN KEY ("medicine_id") REFERENCES "medicines" ("id");
+ALTER TABLE "upload_quote_lines" ADD CONSTRAINT "fk_upload_quote_lines_1" FOREIGN KEY ("quote_id") REFERENCES "upload_quotes" ("id") ON DELETE CASCADE;
+ALTER TABLE "upload_quotes" ADD CONSTRAINT "fk_upload_quotes_0" FOREIGN KEY ("partner_id") REFERENCES "users" ("id");
+ALTER TABLE "upload_quotes" ADD CONSTRAINT "fk_upload_quotes_1" FOREIGN KEY ("upload_id") REFERENCES "rx_uploads" ("id") ON DELETE CASCADE;
+ALTER TABLE "upload_requests" ADD CONSTRAINT "fk_upload_requests_0" FOREIGN KEY ("partner_id") REFERENCES "users" ("id");
+ALTER TABLE "upload_requests" ADD CONSTRAINT "fk_upload_requests_1" FOREIGN KEY ("upload_id") REFERENCES "rx_uploads" ("id") ON DELETE CASCADE;
 
 -- ---------------------------------------------------------------- indexes
 CREATE INDEX IF NOT EXISTS "idx_ai_calls_created" ON "ai_calls" ("created_at");
@@ -1238,108 +1183,108 @@ SELECT setval(pg_get_serial_sequence('"conditions"', 'id'), COALESCE((SELECT MAX
 
 -- lab_tests: 42 rows
 INSERT INTO "lab_tests" ("id", "name", "code", "category", "sample_type", "fasting", "mrp_paise", "unit", "ref_low", "ref_high", "created_at") VALUES
-(1, 'Complete Blood Count (CBC)', 'CBC', 'Blood', 'Blood', 0, 35000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(2, 'Haemoglobin', 'HB', 'Blood', 'Blood', 0, 15000, 'g/dL', 12.0, 17.0, '2026-10-17 11:11:27'),
-(3, 'HbA1c (glycated haemoglobin)', 'HBA1C', 'Blood', 'Blood', 0, 55000, '%', 4.0, 5.6, '2026-10-17 11:11:27'),
-(4, 'Fasting Blood Sugar (FBS)', 'FBS', 'Blood', 'Blood', 1, 10000, 'mg/dL', 70.0, 100.0, '2026-10-17 11:11:27'),
-(5, 'Post-prandial Blood Sugar (PPBS)', 'PPBS', 'Blood', 'Blood', 0, 10000, 'mg/dL', 70.0, 140.0, '2026-10-17 11:11:27'),
-(6, 'Random Blood Sugar', 'RBS', 'Blood', 'Blood', 0, 9000, 'mg/dL', 70.0, 140.0, '2026-10-17 11:11:27'),
-(7, 'Lipid Profile', 'LIPID', 'Blood', 'Blood', 1, 65000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(8, 'Total Cholesterol', 'CHOL', 'Blood', 'Blood', 1, 20000, 'mg/dL', 0.0, 200.0, '2026-10-17 11:11:27'),
-(9, 'LDL Cholesterol', 'LDL', 'Blood', 'Blood', 1, 25000, 'mg/dL', 0.0, 100.0, '2026-10-17 11:11:27'),
-(10, 'Triglycerides', 'TG', 'Blood', 'Blood', 1, 22000, 'mg/dL', 0.0, 150.0, '2026-10-17 11:11:27'),
-(11, 'Liver Function Test (LFT)', 'LFT', 'Blood', 'Blood', 0, 70000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(12, 'SGPT (ALT)', 'ALT', 'Blood', 'Blood', 0, 20000, 'U/L', 7.0, 56.0, '2026-10-17 11:11:27'),
-(13, 'Kidney Function Test (KFT)', 'KFT', 'Blood', 'Blood', 0, 75000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(14, 'Serum Creatinine', 'CREAT', 'Blood', 'Blood', 0, 20000, 'mg/dL', 0.6, 1.3, '2026-10-17 11:11:27'),
-(15, 'Blood Urea', 'UREA', 'Blood', 'Blood', 0, 18000, 'mg/dL', 15.0, 40.0, '2026-10-17 11:11:27'),
-(16, 'Uric Acid', 'URIC', 'Blood', 'Blood', 0, 25000, 'mg/dL', 3.5, 7.2, '2026-10-17 11:11:27'),
-(17, 'Thyroid Profile (T3, T4, TSH)', 'THY', 'Blood', 'Blood', 0, 60000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(18, 'TSH', 'TSH', 'Blood', 'Blood', 0, 35000, 'µIU/mL', 0.4, 4.0, '2026-10-17 11:11:27'),
-(19, 'Vitamin D (25-OH)', 'VITD', 'Blood', 'Blood', 0, 140000, 'ng/mL', 30.0, 100.0, '2026-10-17 11:11:27'),
-(20, 'Vitamin B12', 'B12', 'Blood', 'Blood', 0, 100000, 'pg/mL', 200.0, 900.0, '2026-10-17 11:11:27'),
-(21, 'Serum Iron Studies', 'IRON', 'Blood', 'Blood', 0, 90000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(22, 'ESR', 'ESR', 'Blood', 'Blood', 0, 12000, 'mm/hr', 0.0, 20.0, '2026-10-17 11:11:27'),
-(23, 'C-Reactive Protein (CRP)', 'CRP', 'Blood', 'Blood', 0, 50000, 'mg/L', 0.0, 6.0, '2026-10-17 11:11:27'),
-(24, 'Dengue NS1 Antigen', 'NS1', 'Blood', 'Blood', 0, 60000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(25, 'Dengue IgM / IgG', 'DENIG', 'Blood', 'Blood', 0, 90000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(26, 'Malaria Antigen (rapid)', 'MAL', 'Blood', 'Blood', 0, 40000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(27, 'Widal Test', 'WIDAL', 'Blood', 'Blood', 0, 25000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(28, 'Platelet Count', 'PLT', 'Blood', 'Blood', 0, 15000, 'lakh/µL', 1.5, 4.5, '2026-10-17 11:11:27'),
-(29, 'Urine Routine & Microscopy', 'URINE', 'Urine', 'Urine', 0, 15000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(30, 'Urine Culture & Sensitivity', 'UCS', 'Urine', 'Urine', 0, 80000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(31, 'Stool Routine', 'STOOL', 'Other', 'Stool', 0, 20000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(32, 'PSA (prostate)', 'PSA', 'Blood', 'Blood', 0, 80000, 'ng/mL', 0.0, 4.0, '2026-10-17 11:11:27'),
-(33, 'Beta hCG (pregnancy)', 'BHCG', 'Blood', 'Blood', 0, 70000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(34, 'ECG', 'ECG', 'Cardiac', NULL, 0, 30000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(35, '2D Echo', 'ECHO', 'Cardiac', NULL, 0, 250000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(36, 'Chest X-ray (PA view)', 'CXR', 'Imaging', NULL, 0, 45000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(37, 'X-ray Knee (AP/Lat)', 'XKNEE', 'Imaging', NULL, 0, 60000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(38, 'X-ray Lumbar Spine', 'XLS', 'Imaging', NULL, 0, 70000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(39, 'Ultrasound Abdomen', 'USGA', 'Imaging', NULL, 1, 150000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(40, 'Ultrasound Pelvis', 'USGP', 'Imaging', NULL, 0, 140000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(41, 'MRI Lumbar Spine', 'MRILS', 'Imaging', NULL, 0, 650000, NULL, NULL, NULL, '2026-10-17 11:11:27'),
-(42, 'Bone Mineral Density (DEXA)', 'DEXA', 'Imaging', NULL, 0, 250000, NULL, NULL, NULL, '2026-10-17 11:11:27')
+(1, 'Complete Blood Count (CBC)', 'CBC', 'Blood', 'Blood', 0, 35000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(2, 'Haemoglobin', 'HB', 'Blood', 'Blood', 0, 15000, 'g/dL', 12.0, 17.0, '2026-10-17 11:30:44'),
+(3, 'HbA1c (glycated haemoglobin)', 'HBA1C', 'Blood', 'Blood', 0, 55000, '%', 4.0, 5.6, '2026-10-17 11:30:44'),
+(4, 'Fasting Blood Sugar (FBS)', 'FBS', 'Blood', 'Blood', 1, 10000, 'mg/dL', 70.0, 100.0, '2026-10-17 11:30:44'),
+(5, 'Post-prandial Blood Sugar (PPBS)', 'PPBS', 'Blood', 'Blood', 0, 10000, 'mg/dL', 70.0, 140.0, '2026-10-17 11:30:44'),
+(6, 'Random Blood Sugar', 'RBS', 'Blood', 'Blood', 0, 9000, 'mg/dL', 70.0, 140.0, '2026-10-17 11:30:44'),
+(7, 'Lipid Profile', 'LIPID', 'Blood', 'Blood', 1, 65000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(8, 'Total Cholesterol', 'CHOL', 'Blood', 'Blood', 1, 20000, 'mg/dL', 0.0, 200.0, '2026-10-17 11:30:44'),
+(9, 'LDL Cholesterol', 'LDL', 'Blood', 'Blood', 1, 25000, 'mg/dL', 0.0, 100.0, '2026-10-17 11:30:44'),
+(10, 'Triglycerides', 'TG', 'Blood', 'Blood', 1, 22000, 'mg/dL', 0.0, 150.0, '2026-10-17 11:30:44'),
+(11, 'Liver Function Test (LFT)', 'LFT', 'Blood', 'Blood', 0, 70000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(12, 'SGPT (ALT)', 'ALT', 'Blood', 'Blood', 0, 20000, 'U/L', 7.0, 56.0, '2026-10-17 11:30:44'),
+(13, 'Kidney Function Test (KFT)', 'KFT', 'Blood', 'Blood', 0, 75000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(14, 'Serum Creatinine', 'CREAT', 'Blood', 'Blood', 0, 20000, 'mg/dL', 0.6, 1.3, '2026-10-17 11:30:44'),
+(15, 'Blood Urea', 'UREA', 'Blood', 'Blood', 0, 18000, 'mg/dL', 15.0, 40.0, '2026-10-17 11:30:44'),
+(16, 'Uric Acid', 'URIC', 'Blood', 'Blood', 0, 25000, 'mg/dL', 3.5, 7.2, '2026-10-17 11:30:44'),
+(17, 'Thyroid Profile (T3, T4, TSH)', 'THY', 'Blood', 'Blood', 0, 60000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(18, 'TSH', 'TSH', 'Blood', 'Blood', 0, 35000, 'µIU/mL', 0.4, 4.0, '2026-10-17 11:30:44'),
+(19, 'Vitamin D (25-OH)', 'VITD', 'Blood', 'Blood', 0, 140000, 'ng/mL', 30.0, 100.0, '2026-10-17 11:30:44'),
+(20, 'Vitamin B12', 'B12', 'Blood', 'Blood', 0, 100000, 'pg/mL', 200.0, 900.0, '2026-10-17 11:30:44'),
+(21, 'Serum Iron Studies', 'IRON', 'Blood', 'Blood', 0, 90000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(22, 'ESR', 'ESR', 'Blood', 'Blood', 0, 12000, 'mm/hr', 0.0, 20.0, '2026-10-17 11:30:44'),
+(23, 'C-Reactive Protein (CRP)', 'CRP', 'Blood', 'Blood', 0, 50000, 'mg/L', 0.0, 6.0, '2026-10-17 11:30:44'),
+(24, 'Dengue NS1 Antigen', 'NS1', 'Blood', 'Blood', 0, 60000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(25, 'Dengue IgM / IgG', 'DENIG', 'Blood', 'Blood', 0, 90000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(26, 'Malaria Antigen (rapid)', 'MAL', 'Blood', 'Blood', 0, 40000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(27, 'Widal Test', 'WIDAL', 'Blood', 'Blood', 0, 25000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(28, 'Platelet Count', 'PLT', 'Blood', 'Blood', 0, 15000, 'lakh/µL', 1.5, 4.5, '2026-10-17 11:30:44'),
+(29, 'Urine Routine & Microscopy', 'URINE', 'Urine', 'Urine', 0, 15000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(30, 'Urine Culture & Sensitivity', 'UCS', 'Urine', 'Urine', 0, 80000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(31, 'Stool Routine', 'STOOL', 'Other', 'Stool', 0, 20000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(32, 'PSA (prostate)', 'PSA', 'Blood', 'Blood', 0, 80000, 'ng/mL', 0.0, 4.0, '2026-10-17 11:30:44'),
+(33, 'Beta hCG (pregnancy)', 'BHCG', 'Blood', 'Blood', 0, 70000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(34, 'ECG', 'ECG', 'Cardiac', NULL, 0, 30000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(35, '2D Echo', 'ECHO', 'Cardiac', NULL, 0, 250000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(36, 'Chest X-ray (PA view)', 'CXR', 'Imaging', NULL, 0, 45000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(37, 'X-ray Knee (AP/Lat)', 'XKNEE', 'Imaging', NULL, 0, 60000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(38, 'X-ray Lumbar Spine', 'XLS', 'Imaging', NULL, 0, 70000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(39, 'Ultrasound Abdomen', 'USGA', 'Imaging', NULL, 1, 150000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(40, 'Ultrasound Pelvis', 'USGP', 'Imaging', NULL, 0, 140000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(41, 'MRI Lumbar Spine', 'MRILS', 'Imaging', NULL, 0, 650000, NULL, NULL, NULL, '2026-10-17 11:30:44'),
+(42, 'Bone Mineral Density (DEXA)', 'DEXA', 'Imaging', NULL, 0, 250000, NULL, NULL, NULL, '2026-10-17 11:30:44')
 ON CONFLICT DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('"lab_tests"', 'id'), COALESCE((SELECT MAX(id) FROM "lab_tests"), 1));
 
 -- medicines: 54 rows
 INSERT INTO "medicines" ("id", "name", "generic_name", "strength", "form", "pack_size", "rx_required", "created_at", "care_area") VALUES
-(1, 'Dolo 650', 'Paracetamol', '650 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'General'),
-(2, 'Calpol 650', 'Paracetamol', '650 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'General'),
-(3, 'Crocin 500', 'Paracetamol', '500 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'General'),
-(4, 'Calpol 500', 'Paracetamol', '500 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'General'),
-(5, 'Brufen 400', 'Ibuprofen', '400 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Pain & Ortho'),
-(6, 'Pan 40', 'Pantoprazole', '40 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Gastro & Liver'),
-(7, 'Pantocid 40', 'Pantoprazole', '40 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Gastro & Liver'),
-(8, 'Omez 20', 'Omeprazole', '20 mg', 'capsule', 15, 1, '2026-10-17T16:41:27', 'Gastro & Liver'),
-(9, 'Azithral 500', 'Azithromycin', '500 mg', 'tablet', 5, 1, '2026-10-17T16:41:27', 'Infections'),
-(10, 'Azee 500', 'Azithromycin', '500 mg', 'tablet', 3, 1, '2026-10-17T16:41:27', 'Infections'),
-(11, 'Cetzine 10', 'Cetirizine', '10 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Respiratory'),
-(12, 'Okacet 10', 'Cetirizine', '10 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Respiratory'),
-(13, 'Allegra 120', 'Fexofenadine', '120 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Respiratory'),
-(14, 'Glycomet 500', 'Metformin', '500 mg', 'tablet', 20, 1, '2026-10-17T16:41:27', 'Diabetes & Endocrine'),
-(15, 'Telma 40', 'Telmisartan', '40 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(16, 'Amlong 5', 'Amlodipine', '5 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(17, 'Stamlo 5', 'Amlodipine', '5 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(18, 'Atorva 10', 'Atorvastatin', '10 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(19, 'Lipicure 10', 'Atorvastatin', '10 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(20, 'Ecosprin 75', 'Aspirin', '75 mg', 'tablet', 14, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(21, 'Thyronorm 50', 'Levothyroxine', '50 mcg', 'tablet', 100, 1, '2026-10-17T16:41:27', 'Diabetes & Endocrine'),
-(22, 'Eltroxin 50', 'Levothyroxine', '50 mcg', 'tablet', 100, 1, '2026-10-17T16:41:27', 'Diabetes & Endocrine'),
-(23, 'Ondem 4', 'Ondansetron', '4 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Gastro & Liver'),
-(24, 'Amaryl 1', 'Glimepiride', '1 mg', 'tablet', 30, 1, '2026-10-17T16:41:27', 'Diabetes & Endocrine'),
-(25, 'Januvia 100', 'Sitagliptin', '100 mg', 'tablet', 7, 1, '2026-10-17T16:41:27', 'Diabetes & Endocrine'),
-(26, 'Galvus 50', 'Vildagliptin', '50 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Diabetes & Endocrine'),
-(27, 'Rosuvas 10', 'Rosuvastatin', '10 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(28, 'Met XL 25', 'Metoprolol', '25 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(29, 'Clopilet 75', 'Clopidogrel', '75 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Cardiology'),
-(30, 'Montair 10', 'Montelukast', '10 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Respiratory'),
-(31, 'Levocet 5', 'Levocetirizine', '5 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Respiratory'),
-(32, 'Asthalin Inhaler', 'Salbutamol', '100 mcg', 'inhaler', 1, 1, '2026-10-17T16:41:27', 'Respiratory'),
-(33, 'Foracort 200 Rotacap', 'Budesonide + Formoterol', '200 mcg', 'capsule', 30, 1, '2026-10-17T16:41:27', 'Respiratory'),
-(34, 'Augmentin 625 Duo', 'Amoxicillin + Clavulanic acid', '625 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Infections'),
-(35, 'Taxim-O 200', 'Cefixime', '200 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Infections'),
-(36, 'Doxy-1 100', 'Doxycycline', '100 mg', 'capsule', 10, 1, '2026-10-17T16:41:27', 'Infections'),
-(37, 'Niftran 100', 'Nitrofurantoin', '100 mg', 'capsule', 10, 1, '2026-10-17T16:41:27', 'Kidney & Urology'),
-(38, 'Urimax 0.4', 'Tamsulosin', '0.4 mg', 'capsule', 15, 1, '2026-10-17T16:41:27', 'Kidney & Urology'),
-(39, 'Nexito 10', 'Escitalopram', '10 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Psychiatry'),
-(40, 'Serta 50', 'Sertraline', '50 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Psychiatry'),
-(41, 'Lyrica 75', 'Pregabalin', '75 mg', 'capsule', 14, 1, '2026-10-17T16:41:27', 'Neurology'),
-(42, 'Hifenac 100', 'Aceclofenac', '100 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Pain & Ortho'),
-(43, 'Voveran 50', 'Diclofenac', '50 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Pain & Ortho'),
-(44, 'Domstal 10', 'Domperidone', '10 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'Gastro & Liver'),
-(45, 'Razo 20', 'Rabeprazole', '20 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Gastro & Liver'),
-(46, 'Udiliv 300', 'Ursodeoxycholic acid', '300 mg', 'tablet', 15, 1, '2026-10-17T16:41:27', 'Gastro & Liver'),
-(47, 'Uprise D3 60K', 'Cholecalciferol', '60000 IU', 'capsule', 4, 1, '2026-10-17T16:41:27', 'Diabetes & Endocrine'),
-(48, 'Methycobal 500', 'Methylcobalamin', '500 mcg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'General'),
-(49, 'Folvite 5', 'Folic acid', '5 mg', 'tablet', 45, 1, '2026-10-17T16:41:27', 'Women''s health'),
-(50, 'Orofer XT', 'Ferrous ascorbate', '100 mg', 'tablet', 10, 1, '2026-10-17T16:41:27', 'General'),
-(51, 'Terbicip 250', 'Terbinafine', '250 mg', 'tablet', 7, 1, '2026-10-17T16:41:27', 'Dermatology'),
-(52, 'Moxicip Eye Drops', 'Moxifloxacin', '0.5%', 'drops', 1, 1, '2026-10-17T16:41:27', 'ENT & Eye'),
-(53, 'Refresh Tears', 'Carboxymethylcellulose', '0.5%', 'drops', 1, 1, '2026-10-17T16:41:27', 'ENT & Eye'),
-(54, 'Hexidine Mouthwash', 'Chlorhexidine', '0.2%', 'other', 1, 1, '2026-10-17T16:41:27', 'Dental')
+(1, 'Dolo 650', 'Paracetamol', '650 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'General'),
+(2, 'Calpol 650', 'Paracetamol', '650 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'General'),
+(3, 'Crocin 500', 'Paracetamol', '500 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'General'),
+(4, 'Calpol 500', 'Paracetamol', '500 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'General'),
+(5, 'Brufen 400', 'Ibuprofen', '400 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Pain & Ortho'),
+(6, 'Pan 40', 'Pantoprazole', '40 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Gastro & Liver'),
+(7, 'Pantocid 40', 'Pantoprazole', '40 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Gastro & Liver'),
+(8, 'Omez 20', 'Omeprazole', '20 mg', 'capsule', 15, 1, '2026-10-17T17:00:44', 'Gastro & Liver'),
+(9, 'Azithral 500', 'Azithromycin', '500 mg', 'tablet', 5, 1, '2026-10-17T17:00:44', 'Infections'),
+(10, 'Azee 500', 'Azithromycin', '500 mg', 'tablet', 3, 1, '2026-10-17T17:00:44', 'Infections'),
+(11, 'Cetzine 10', 'Cetirizine', '10 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Respiratory'),
+(12, 'Okacet 10', 'Cetirizine', '10 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Respiratory'),
+(13, 'Allegra 120', 'Fexofenadine', '120 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Respiratory'),
+(14, 'Glycomet 500', 'Metformin', '500 mg', 'tablet', 20, 1, '2026-10-17T17:00:44', 'Diabetes & Endocrine'),
+(15, 'Telma 40', 'Telmisartan', '40 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(16, 'Amlong 5', 'Amlodipine', '5 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(17, 'Stamlo 5', 'Amlodipine', '5 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(18, 'Atorva 10', 'Atorvastatin', '10 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(19, 'Lipicure 10', 'Atorvastatin', '10 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(20, 'Ecosprin 75', 'Aspirin', '75 mg', 'tablet', 14, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(21, 'Thyronorm 50', 'Levothyroxine', '50 mcg', 'tablet', 100, 1, '2026-10-17T17:00:44', 'Diabetes & Endocrine'),
+(22, 'Eltroxin 50', 'Levothyroxine', '50 mcg', 'tablet', 100, 1, '2026-10-17T17:00:44', 'Diabetes & Endocrine'),
+(23, 'Ondem 4', 'Ondansetron', '4 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Gastro & Liver'),
+(24, 'Amaryl 1', 'Glimepiride', '1 mg', 'tablet', 30, 1, '2026-10-17T17:00:44', 'Diabetes & Endocrine'),
+(25, 'Januvia 100', 'Sitagliptin', '100 mg', 'tablet', 7, 1, '2026-10-17T17:00:44', 'Diabetes & Endocrine'),
+(26, 'Galvus 50', 'Vildagliptin', '50 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Diabetes & Endocrine'),
+(27, 'Rosuvas 10', 'Rosuvastatin', '10 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(28, 'Met XL 25', 'Metoprolol', '25 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(29, 'Clopilet 75', 'Clopidogrel', '75 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Cardiology'),
+(30, 'Montair 10', 'Montelukast', '10 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Respiratory'),
+(31, 'Levocet 5', 'Levocetirizine', '5 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Respiratory'),
+(32, 'Asthalin Inhaler', 'Salbutamol', '100 mcg', 'inhaler', 1, 1, '2026-10-17T17:00:44', 'Respiratory'),
+(33, 'Foracort 200 Rotacap', 'Budesonide + Formoterol', '200 mcg', 'capsule', 30, 1, '2026-10-17T17:00:44', 'Respiratory'),
+(34, 'Augmentin 625 Duo', 'Amoxicillin + Clavulanic acid', '625 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Infections'),
+(35, 'Taxim-O 200', 'Cefixime', '200 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Infections'),
+(36, 'Doxy-1 100', 'Doxycycline', '100 mg', 'capsule', 10, 1, '2026-10-17T17:00:44', 'Infections'),
+(37, 'Niftran 100', 'Nitrofurantoin', '100 mg', 'capsule', 10, 1, '2026-10-17T17:00:44', 'Kidney & Urology'),
+(38, 'Urimax 0.4', 'Tamsulosin', '0.4 mg', 'capsule', 15, 1, '2026-10-17T17:00:44', 'Kidney & Urology'),
+(39, 'Nexito 10', 'Escitalopram', '10 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Psychiatry'),
+(40, 'Serta 50', 'Sertraline', '50 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Psychiatry'),
+(41, 'Lyrica 75', 'Pregabalin', '75 mg', 'capsule', 14, 1, '2026-10-17T17:00:44', 'Neurology'),
+(42, 'Hifenac 100', 'Aceclofenac', '100 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Pain & Ortho'),
+(43, 'Voveran 50', 'Diclofenac', '50 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Pain & Ortho'),
+(44, 'Domstal 10', 'Domperidone', '10 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'Gastro & Liver'),
+(45, 'Razo 20', 'Rabeprazole', '20 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Gastro & Liver'),
+(46, 'Udiliv 300', 'Ursodeoxycholic acid', '300 mg', 'tablet', 15, 1, '2026-10-17T17:00:44', 'Gastro & Liver'),
+(47, 'Uprise D3 60K', 'Cholecalciferol', '60000 IU', 'capsule', 4, 1, '2026-10-17T17:00:44', 'Diabetes & Endocrine'),
+(48, 'Methycobal 500', 'Methylcobalamin', '500 mcg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'General'),
+(49, 'Folvite 5', 'Folic acid', '5 mg', 'tablet', 45, 1, '2026-10-17T17:00:44', 'Women''s health'),
+(50, 'Orofer XT', 'Ferrous ascorbate', '100 mg', 'tablet', 10, 1, '2026-10-17T17:00:44', 'General'),
+(51, 'Terbicip 250', 'Terbinafine', '250 mg', 'tablet', 7, 1, '2026-10-17T17:00:44', 'Dermatology'),
+(52, 'Moxicip Eye Drops', 'Moxifloxacin', '0.5%', 'drops', 1, 1, '2026-10-17T17:00:44', 'ENT & Eye'),
+(53, 'Refresh Tears', 'Carboxymethylcellulose', '0.5%', 'drops', 1, 1, '2026-10-17T17:00:44', 'ENT & Eye'),
+(54, 'Hexidine Mouthwash', 'Chlorhexidine', '0.2%', 'other', 1, 1, '2026-10-17T17:00:44', 'Dental')
 ON CONFLICT DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('"medicines"', 'id'), COALESCE((SELECT MAX(id) FROM "medicines"), 1));
