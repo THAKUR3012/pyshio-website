@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 -r requirements.txt
 fastapi>=0.110
 uvicorn>=0.29
@@ -9,3 +10,6 @@ gunicorn>=21.2.0
 pytest>=8
 httpx>=0.27
 
+=======
+-r backend/requirements.txt
+>>>>>>> 27c9fcf (Delete demo PDF reports and add Vercel configuration for API routing)

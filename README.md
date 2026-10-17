@@ -72,9 +72,14 @@ This starts:
 2. **FastAPI Web App** (`pyshio_web`) on `http://localhost:8080`.
 3. **Background Worker** (`pyshio_jobs`) executing scheduled reminders and maintenance every 5 minutes.
 
-For production VPS deployment, see [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md).
+## Cloud Deployments
+
+- **Deploy Backend + PostgreSQL on Render:** See [DEPLOY_RENDER.md](DEPLOY_RENDER.md) (uses [render.yaml](render.yaml) for 1-click deployment).
+- **Deploy Frontend on Vercel:** See [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md) (uses [vercel.json](vercel.json) with automatic API proxying).
+- **Deploy with Docker on Linux VPS:** See [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md).
 
 ## Run locally (without Docker)
+
 
 
 ```bash

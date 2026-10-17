@@ -1,56 +1,29 @@
-"""Pyshio web app: puts the feature slices together.
+"""Pyshio Web App Launcher.
 
-Each feature lives in features/<slice>/ (see features/__init__.py); this file only creates the FastAPI app,
-registers every slice's routes and static files, handles errors and prepares the database.
-
-    python server.py          # local: http://localhost:8080
+This root wrapper enables running `python server.py` directly from the project root
+while executing the backend application inside `backend/`.
 """
-import logging
+import importlib.util
+import os
+import sys
+from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from starlette.exceptions import HTTPException as StarletteHTTPException
+ROOT_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = ROOT_DIR / "backend"
 
-from shared import auth, settings  # settings loads .env first
-from shared.db import init_db
-import features
-from features.medicines import logic as medicines
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
-log = logging.getLogger("pyshio")
-app = FastAPI(title=f"{settings.PLATFORM_NAME} API")
+os.chdir(BACKEND_DIR)
 
+# Load backend/server.py directly
+backend_server_path = BACKEND_DIR / "server.py"
+spec = importlib.util.spec_from_file_location("backend_server", backend_server_path)
+backend_module = importlib.util.module_from_spec(spec)
+sys.modules["backend_server"] = backend_module
+spec.loader.exec_module(backend_module)
 
-# ---------- Errors ----------
-@app.exception_handler(StarletteHTTPException)
-async def http_error_handler(request: Request, exc: StarletteHTTPException):
-    """API callers get JSON; people browsing get a friendly 404 page (with a real 404 status)."""
-    if exc.status_code == 404 and not request.url.path.startswith("/api/"):
-        return FileResponse(settings.WEB_DIR / "404.html", status_code=404)
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=getattr(exc, "headers", None))
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_error_handler(request: Request, exc: RequestValidationError):
-    messages = []
-    for err in exc.errors():
-        msg = err.get("msg", "Invalid value").removeprefix("Value error, ")
-        field = err["loc"][-1] if err.get("loc") else ""
-        messages.append(msg if err.get("type") == "value_error" else f"{field}: {msg}")
-    return JSONResponse(status_code=422, content={"detail": "; ".join(messages)})
-
-
-# ---------- Slices ----------
-for _slice, _api in features.load_all():
-    app.include_router(_api.router)
-for _slice, _folder in features.static_dirs():
-    app.mount(f"/features/{_slice}", StaticFiles(directory=_folder), name=f"static-{_slice}")
-app.mount("/assets", StaticFiles(directory=settings.WEB_DIR / "assets"), name="assets")
-
-init_db()
-auth.ensure_admin()
-medicines.seed_catalogue()
+app = backend_module.app
 
 if __name__ == "__main__":
     import uvicorn

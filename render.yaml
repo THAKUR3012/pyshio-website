@@ -1,0 +1,54 @@
+services:
+  # ----------------------------------------------------
+  # Backend Web API Service (FastAPI + Gunicorn/Uvicorn)
+  # ----------------------------------------------------
+  - type: web
+    name: pyshio-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 -k uvicorn.workers.UvicornWorker server:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pyshio-postgres
+          property: connectionString
+      - key: PYSHIO_TIMEZONE
+        value: Asia/Kolkata
+      - key: PYSHIO_ADMIN_EMAIL
+        value: admin@yourdomain.com
+      - key: PYSHIO_ADMIN_PASSWORD
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "https://*.vercel.app,http://localhost:3000"
+
+  # ----------------------------------------------------
+  # Background Worker (Runs maintenance tasks every 5m)
+  # ----------------------------------------------------
+  - type: cron
+    name: pyshio-jobs
+    runtime: python
+    rootDir: backend
+    plan: free
+    schedule: "*/5 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python jobs.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pyshio-postgres
+          property: connectionString
+      - key: PYSHIO_TIMEZONE
+        value: Asia/Kolkata
+
+# ----------------------------------------------------
+# Managed PostgreSQL Database
+# ----------------------------------------------------
+databases:
+  - name: pyshio-postgres
+    databaseName: pyshio_db
+    user: pyshio
+    plan: free

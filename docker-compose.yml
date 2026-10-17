@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pyshio_secret_pass}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./backend/postgres_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-pyshio} -d $${POSTGRES_DB:-pyshio_db}"]
       interval: 5s
@@ -20,7 +20,7 @@ services:
 
   web:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: pyshio_web
     restart: unless-stopped
@@ -46,7 +46,7 @@ services:
 
   jobs:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: pyshio_jobs
     restart: unless-stopped
