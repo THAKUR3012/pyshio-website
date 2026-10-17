@@ -41,7 +41,9 @@ app.add_middleware(
 async def http_error_handler(request: Request, exc: StarletteHTTPException):
     """API callers get JSON; people browsing get a friendly 404 page (with a real 404 status)."""
     if exc.status_code == 404 and not request.url.path.startswith("/api/"):
-        return FileResponse(settings.WEB_DIR / "404.html", status_code=404)
+        not_found_page = settings.WEB_DIR / "404.html"
+        if not_found_page.is_file():
+            return FileResponse(not_found_page, status_code=404)
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=getattr(exc, "headers", None))
 
 
@@ -60,7 +62,9 @@ for _slice, _api in features.load_all():
     app.include_router(_api.router)
 for _slice, _folder in features.static_dirs():
     app.mount(f"/features/{_slice}", StaticFiles(directory=_folder), name=f"static-{_slice}")
-app.mount("/assets", StaticFiles(directory=settings.WEB_DIR / "assets"), name="assets")
+assets_dir = settings.WEB_DIR / "assets"
+if assets_dir.is_dir():
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 
 # ---------- Scheduled Jobs Endpoint (Vercel Cron / Render Webhook) ----------
