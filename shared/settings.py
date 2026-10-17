@@ -14,6 +14,12 @@ load_env(os.environ.get("PYSHIO_ENV_FILE", BASE_DIR / ".env"))
 PLATFORM_NAME = os.environ.get("PYSHIO_PLATFORM_NAME", "Pyshio")
 SITE_URL = os.environ.get("PYSHIO_SITE_URL", "").rstrip("/")
 DB_PATH = os.environ.get("PYSHIO_DB", str(BASE_DIR / "pyshio.db"))
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+POSTGRES_HOST = os.environ.get("POSTGRES_HOST")
+POSTGRES_PORT = int(os.environ.get("POSTGRES_PORT", "5432"))
+POSTGRES_DB = os.environ.get("POSTGRES_DB")
+POSTGRES_USER = os.environ.get("POSTGRES_USER")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
 
 # Hosting servers (e.g. GoDaddy) usually run on US time; all scheduling uses this zone.
 TIMEZONE = ZoneInfo(os.environ.get("PYSHIO_TIMEZONE", "Asia/Kolkata"))

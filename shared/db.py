@@ -1,6 +1,9 @@
-"""SQLite connection helpers and schema."""
+"""Database connection helpers and schema (PostgreSQL & SQLite)."""
+import os
+import re
 import sqlite3
 from contextlib import contextmanager
+from pathlib import Path
 
 from shared import settings
 
@@ -135,31 +138,215 @@ CREATE INDEX IF NOT EXISTS idx_doctors_status_city ON doctors(status, city);
 """
 
 
+# ---------- Database backend (PostgreSQL with SQLite fallback) ----------
+_pg_pool = None
+
+
+def is_postgres() -> bool:
+    return bool(getattr(settings, "DATABASE_URL", None) or getattr(settings, "POSTGRES_DB", None) or getattr(settings, "POSTGRES_HOST", None))
+
+
+def _get_pg_pool():
+    global _pg_pool
+    if _pg_pool is None:
+        import psycopg2.pool
+        dsn = getattr(settings, "DATABASE_URL", None)
+        if not dsn:
+            host = getattr(settings, "POSTGRES_HOST", "localhost") or "localhost"
+            port = getattr(settings, "POSTGRES_PORT", 5432) or 5432
+            db = getattr(settings, "POSTGRES_DB", "pyshio_db") or "pyshio_db"
+            user = getattr(settings, "POSTGRES_USER", "pyshio") or "pyshio"
+            password = getattr(settings, "POSTGRES_PASSWORD", "") or ""
+            dsn = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+        _pg_pool = psycopg2.pool.ThreadedConnectionPool(1, 20, dsn)
+    return _pg_pool
+
+
+class PostgresCursorWrapper:
+    def __init__(self, cursor, conn):
+        self._cur = cursor
+        self._conn = conn
+        self.lastrowid = None
+
+    def __iter__(self):
+        return iter(self._cur)
+
+    def fetchone(self):
+        try:
+            return self._cur.fetchone()
+        except Exception:
+            return None
+
+    def fetchall(self):
+        return self._cur.fetchall()
+
+    def fetchmany(self, size=None):
+        return self._cur.fetchmany(size) if size else self._cur.fetchmany()
+
+    @property
+    def rowcount(self):
+        return self._cur.rowcount
+
+    @property
+    def description(self):
+        return self._cur.description
+
+    def close(self):
+        self._cur.close()
+
+
+def _translate_sql(sql: str) -> str:
+    """Translates SQLite-style queries to PostgreSQL."""
+    parts = []
+    in_quote = False
+    quote_char = None
+    i = 0
+    while i < len(sql):
+        c = sql[i]
+        if in_quote:
+            parts.append(c)
+            if c == quote_char:
+                if i + 1 < len(sql) and sql[i + 1] == quote_char:
+                    parts.append(sql[i + 1])
+                    i += 1
+                else:
+                    in_quote = False
+        else:
+            if c in ("'", '"'):
+                in_quote = True
+                quote_char = c
+                parts.append(c)
+            elif c == '?':
+                parts.append('%s')
+            else:
+                parts.append(c)
+        i += 1
+    translated = "".join(parts)
+    if "INSERT OR IGNORE INTO" in translated:
+        translated = re.sub(r"INSERT\s+OR\s+IGNORE\s+INTO\s+([a-zA-Z0-9_\"`]+)", r"INSERT INTO \1", translated, flags=re.I)
+        if "ON CONFLICT" not in translated.upper():
+            translated = translated.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
+    return translated
+
+
+class PostgresConnectionWrapper:
+    def __init__(self, conn):
+        self._conn = conn
+        self._conn.autocommit = True
+
+    def cursor(self):
+        import psycopg2.extras
+        cur = self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        return PostgresCursorWrapper(cur, self)
+
+    def execute(self, sql: str, params=None):
+        translated = _translate_sql(sql)
+        cur = self.cursor()
+        is_insert = translated.strip().upper().startswith("INSERT INTO")
+        has_returning = "RETURNING" in translated.upper()
+        if is_insert and not has_returning and "ON CONFLICT DO NOTHING" not in translated.upper():
+            try_sql = translated.rstrip().rstrip(";") + " RETURNING id"
+            savepoint = None
+            if not self._conn.autocommit:
+                savepoint = "sp_insert"
+                cur._cur.execute(f"SAVEPOINT {savepoint}")
+            try:
+                if params is not None:
+                    cur._cur.execute(try_sql, params)
+                else:
+                    cur._cur.execute(try_sql)
+                try:
+                    row = cur._cur.fetchone()
+                    if row:
+                        cur.lastrowid = row[0]
+                except Exception:
+                    pass
+                if savepoint:
+                    cur._cur.execute(f"RELEASE SAVEPOINT {savepoint}")
+                return cur
+            except Exception:
+                if savepoint:
+                    cur._cur.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                else:
+                    self._conn.rollback()
+        if params is not None:
+            cur._cur.execute(translated, params)
+        else:
+            cur._cur.execute(translated)
+        return cur
+
+    def executemany(self, sql: str, seq_of_params):
+        translated = _translate_sql(sql)
+        cur = self.cursor()
+        cur._cur.executemany(translated, seq_of_params)
+        return cur
+
+    def executescript(self, script: str):
+        cur = self.cursor()
+        cur._cur.execute(script)
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        pass
+
+
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(settings.DB_PATH, timeout=10, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    try:
-        yield conn
-    finally:
-        conn.close()
+    if is_postgres():
+        pool = _get_pg_pool()
+        raw_conn = pool.getconn()
+        wrapped = PostgresConnectionWrapper(raw_conn)
+        try:
+            yield wrapped
+        finally:
+            pool.putconn(raw_conn)
+    else:
+        conn = sqlite3.connect(settings.DB_PATH, timeout=10, isolation_level=None)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        try:
+            yield conn
+        finally:
+            conn.close()
 
 
 @contextmanager
 def write_txn(conn):
     """Serialise writers so two requests can never take the same slot."""
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        yield
-        conn.execute("COMMIT")
-    except BaseException:
-        conn.execute("ROLLBACK")
-        raise
+    if is_postgres():
+        conn._conn.autocommit = False
+        try:
+            yield
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn._conn.autocommit = True
+    else:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            yield
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
 
 
 def _columns(conn, table):
+    if is_postgres():
+        cur = conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = %s", (table,)
+        )
+        return {r[0] for r in cur.fetchall()}
     return {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+
 
 
 # ---------- Versioned upgrades (PRAGMA user_version) ----------
@@ -1161,6 +1348,20 @@ def _statements(script: str):
 
 
 def init_db():
+    if is_postgres():
+        with get_db() as conn:
+            cur = conn.execute("SELECT to_regclass('public.users');")
+            res = cur.fetchone()
+            if not res or not res[0]:
+                schema_file = Path(__file__).resolve().parent.parent / "postgres_schema.sql"
+                if schema_file.exists():
+                    conn.executescript(schema_file.read_text(encoding="utf-8"))
+            _seed_reference(conn)
+            if "salt_key" in _columns(conn, "medicines"):
+                from shared import salts
+                salts.backfill(conn)
+        return
+
     with get_db() as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         # The single-clinic version used differently shaped tables. Keep its rows for

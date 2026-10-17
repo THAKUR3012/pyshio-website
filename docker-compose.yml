@@ -1,0 +1,77 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pyshio_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pyshio_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pyshio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pyshio_secret_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-pyshio} -d $${POSTGRES_DB:-pyshio_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pyshio_network
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pyshio_web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pyshio}:${POSTGRES_PASSWORD:-pyshio_secret_pass}@db:5432/${POSTGRES_DB:-pyshio_db}
+      PYSHIO_SITE_URL: ${PYSHIO_SITE_URL:-http://localhost:8080}
+      PYSHIO_ADMIN_EMAIL: ${PYSHIO_ADMIN_EMAIL:-admin@yourdomain.com}
+      PYSHIO_ADMIN_PASSWORD: ${PYSHIO_ADMIN_PASSWORD:-change-me-to-a-long-password}
+      PYSHIO_TIMEZONE: ${PYSHIO_TIMEZONE:-Asia/Kolkata}
+      PYSHIO_UPLOAD_DIR: /app/uploads
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - pyshio_network
+
+  jobs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pyshio_jobs
+    restart: unless-stopped
+    command: ["jobs"]
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_started
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pyshio}:${POSTGRES_PASSWORD:-pyshio_secret_pass}@db:5432/${POSTGRES_DB:-pyshio_db}
+      PYSHIO_TIMEZONE: ${PYSHIO_TIMEZONE:-Asia/Kolkata}
+      PYSHIO_UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - pyshio_network
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  pyshio_network:
+    driver: bridge

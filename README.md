@@ -11,7 +11,7 @@ A location-based health network that connects **patients, doctors and pharmacies
 7. When the doctor suggests **tests**, they go to verified **labs within 3 km**. The patient sees the **cheapest**, **fastest report** and **home collection** options, books one, and the lab uploads the **report with key results**. Everything lands in the patient's **Health records** (reports, trends such as HbA1c over time, their own files, other medicines).
 8. **Pharma companies** see **sales and demand for their products**: units prescribed and sold, sales ₹, share against other brands of the same salt, **which diseases** they are prescribed for, and **doctor by doctor** (doctors who opt in by name, all others under an anonymous code). Their **MRs** see the same for their territory and division, and request meetings. The super admin sees **analytics by disease, age, city, state, medicine and lab test**.
 
-**Stack:** FastAPI (Python) · SQLite · Tailwind pages · OpenStreetMap (Leaflet) · optional Razorpay · SMTP email. Runs on GoDaddy cPanel shared hosting.
+**Stack:** FastAPI (Python) · PostgreSQL / SQLite · Docker · Tailwind pages · OpenStreetMap (Leaflet) · optional Razorpay · SMTP email. Deployable with Docker Compose or on Linux VPS.
 
 ## Who can do what
 
@@ -58,7 +58,24 @@ A location-based health network that connects **patients, doctors and pharmacies
 
 Prescriptions print from `/prescriptions/<id>` (doctor, qualification and registration number included).
 
-## Run locally
+## Run with Docker & PostgreSQL
+
+The easiest way to run Pyshio in production or locally:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+This starts:
+1. **PostgreSQL 16** (`pyshio_db`) with schema and reference data automatically bootstrapped.
+2. **FastAPI Web App** (`pyshio_web`) on `http://localhost:8080`.
+3. **Background Worker** (`pyshio_jobs`) executing scheduled reminders and maintenance every 5 minutes.
+
+For production VPS deployment, see [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md).
+
+## Run locally (without Docker)
+
 
 ```bash
 pip install -r requirements-dev.txt
