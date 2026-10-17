@@ -1385,7 +1385,7 @@ def _seed_reference(conn):
         return  # older schema (only while testing upgrades)
     conn.executemany("INSERT OR IGNORE INTO conditions (code, name, care_area) VALUES (?, ?, ?)", ref.CONDITIONS)
     if _columns(conn, "lab_tests"):
-        timestamp_sql = "CURRENT_TIMESTAMP" if is_postgres() else "datetime('now')"
+        timestamp_sql = "to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')" if is_postgres() else "datetime('now')"
         lab_rows = [
             (n, c, cat, smp, bool(f) if is_postgres() else f, mrp * 100, u, lo, hi)
             for n, c, cat, smp, f, mrp, u, lo, hi in ref.LAB_TESTS
