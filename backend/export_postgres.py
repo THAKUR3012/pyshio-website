@@ -233,17 +233,7 @@ def build() -> tuple[str, int, int]:
                     vals.append("'" + str(v).replace("'", "''") + "'")
             values.append("(" + ", ".join(vals) + ")")
 
-            vals = []
-            for v in r:
-                if v is None:
-                    vals.append("NULL")
-                elif isinstance(v, bool):
-                    vals.append("TRUE" if v else "FALSE")
-                elif isinstance(v, (int, float)):
-                    vals.append(str(v))
-                else:
-                    vals.append("'" + str(v).replace("'", "''") + "'")
-            values.append("(" + ", ".join(vals) + ")")
+         
         lines.append(f'INSERT INTO "{table}" ({q(columns)}) VALUES\n' + ",\n".join(values) + "\nON CONFLICT DO NOTHING;\n")
         # Reset sequence for PostgreSQL SERIAL column
         lines.append(f"SELECT setval(pg_get_serial_sequence('\"{table}\"', 'id'), COALESCE((SELECT MAX(id) FROM \"{table}\"), 1));\n")
