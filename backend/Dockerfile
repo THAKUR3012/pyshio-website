@@ -1,6 +1,6 @@
+
 FROM python:3.11-slim
 
-# Install system dependencies for PostgreSQL client, timezone data, and networking
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
@@ -12,15 +12,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python packages
-COPY requirements.txt .
+# Install Python dependencies
+COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
-COPY . .
+# Copy backend application
+COPY backend/ ./
 
-# Create uploads directory and ensure entrypoint is executable
+# Ensure the entrypoint script exists and is executable
 RUN mkdir -p /app/uploads && \
     chmod +x /app/docker-entrypoint.sh
 
