@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from shared import reference_data as ref, salts
 from shared.common import paise, stamp
-from shared.db import get_db
+from shared.db import get_db, is_postgres
 
 
 FORMS = ["tablet", "capsule", "syrup", "suspension", "injection", "drops", "cream", "gel", "ointment",
@@ -121,9 +121,16 @@ STARTER_CATALOGUE = [
 def seed_catalogue() -> None:
     """Add any starter medicines that are missing and fill in care areas from the salt."""
     with get_db() as conn:
-        conn.executemany("INSERT OR IGNORE INTO medicines (name, generic_name, strength, form, pack_size, rx_required, "
-                         "created_at, care_area) VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
-                         [(n, g, s, f, p, stamp(), ref.care_area_for(g)) for n, g, s, f, p in STARTER_CATALOGUE])
+        rx_required_sql = "TRUE" if is_postgres() else "1"
+        conn.executemany(
+            "INSERT OR IGNORE INTO medicines "
+            "(name, generic_name, strength, form, pack_size, rx_required, created_at, care_area) "
+            f"VALUES (?, ?, ?, ?, ?, {rx_required_sql}, ?, ?)",
+            [
+                (n, g, s, f, p, stamp(), ref.care_area_for(g))
+                for n, g, s, f, p in STARTER_CATALOGUE
+            ],
+        )
         for row in conn.execute("SELECT id, generic_name FROM medicines WHERE care_area IS NULL").fetchall():
             area = ref.care_area_for(row["generic_name"])
             if area:
