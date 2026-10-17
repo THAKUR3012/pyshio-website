@@ -217,7 +217,22 @@ def build() -> tuple[str, int, int]:
             return
         lines.append(f"-- {table}: {len(rows)} rows")
         values = []
+
         for r in rows:
+            vals = []
+            for col, v in zip(columns, r):
+                if v is None:
+                    vals.append("NULL")
+                elif col in {"fasting", "rx_required"}:
+                    vals.append("TRUE" if bool(v) else "FALSE")
+                elif isinstance(v, bool):
+                    vals.append("TRUE" if v else "FALSE")
+                elif isinstance(v, (int, float)):
+                    vals.append(str(v))
+                else:
+                    vals.append("'" + str(v).replace("'", "''") + "'")
+            values.append("(" + ", ".join(vals) + ")")
+
             vals = []
             for v in r:
                 if v is None:
