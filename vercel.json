@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://pyshio-backend.onrender.com/api/:path*"
+      "destination": "https://pyshio-website-8hx9.onrender.com"
     },
     {
       "source": "/(.*)",
