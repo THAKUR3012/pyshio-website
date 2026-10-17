@@ -1385,9 +1385,18 @@ def _seed_reference(conn):
         return  # older schema (only while testing upgrades)
     conn.executemany("INSERT OR IGNORE INTO conditions (code, name, care_area) VALUES (?, ?, ?)", ref.CONDITIONS)
     if _columns(conn, "lab_tests"):
-        conn.executemany("INSERT OR IGNORE INTO lab_tests (name, code, category, sample_type, fasting, mrp_paise, unit, "
-                         "ref_low, ref_high, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
-                         [(n, c, cat, smp, f, mrp * 100, u, lo, hi) for n, c, cat, smp, f, mrp, u, lo, hi in ref.LAB_TESTS])
+        timestamp_sql = "CURRENT_TIMESTAMP" if is_postgres() else "datetime('now')"
+        lab_rows = [
+            (n, c, cat, smp, bool(f) if is_postgres() else f, mrp * 100, u, lo, hi)
+            for n, c, cat, smp, f, mrp, u, lo, hi in ref.LAB_TESTS
+        ]
+        conn.executemany(
+            "INSERT OR IGNORE INTO lab_tests "
+            "(name, code, category, sample_type, fasting, mrp_paise, unit, "
+            "ref_low, ref_high, created_at) "
+            f"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, {timestamp_sql})",
+            lab_rows,
+        )
     for table in ("doctors", "pharmacies") + (("labs",) if _columns(conn, "labs") else ()):
         for row in conn.execute(f"SELECT user_id, city FROM {table} WHERE state IS NULL").fetchall():
             state = ref.state_for_city(row["city"])
